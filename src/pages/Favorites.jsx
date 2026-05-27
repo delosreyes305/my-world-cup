@@ -1,0 +1,120 @@
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useApp } from '../context/AppContext'
+import { useLang } from '../context/LangContext'
+import { TEAMS, PLAYERS, MATCHES } from '../data/mockData'
+import MatchCard from '../components/common/MatchCard'
+import '../components/common/MatchCard.css'
+
+const TABS = ['Teams', 'Players', 'Matches']
+
+export default function Favorites() {
+  const { favorites, toggleFav } = useApp()
+  const { t } = useLang()
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('Teams')
+
+  const favTeams   = TEAMS.filter(tm => favorites.teams.includes(tm.id))
+  const favPlayers = PLAYERS.filter(p  => favorites.players.includes(p.id))
+  const favMatches = MATCHES.filter(m  => favorites.matches.includes(m.id))
+
+  const isEmpty = !favTeams.length && !favPlayers.length && !favMatches.length
+
+  return (
+    <div className="page-content page-enter">
+      <div className="section-header mb-24">
+        <h1 className="section-title"> <span>{t('nav','favorites')}</span></h1>
+        <div className="flex gap-8">
+          <span className="badge badge-gold">{favTeams.length} Teams</span>
+          <span className="badge badge-blue">{favPlayers.length} Players</span>
+          <span className="badge badge-green">{favMatches.length} Matches</span>
+        </div>
+      </div>
+
+      {isEmpty ? (
+        <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>💔</div>
+          <h2 className="fw-600 mb-8" style={{ fontSize: 20 }}>No favorites yet</h2>
+          <p className="text-muted mb-24">
+            Tap the ♥ button on any team, player or match to save them here.
+          </p>
+          <div className="flex gap-8" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-gold" onClick={() => navigate('/teams')}>Browse Teams</button>
+            <button className="btn btn-outline" onClick={() => navigate('/players')}>Browse Players</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="tabs" role="tablist" aria-label="Favorites sections">
+            {TABS.map(tab => (
+              <button
+                key={tab}
+                className={`tab${activeTab === tab ? ' active' : ''}`}
+                onClick={() => setActiveTab(tab)}
+                role="tab"
+                aria-selected={activeTab === tab}
+              >
+                {tab === 'Teams' && `🛡️ Teams (${favTeams.length})`}
+                {tab === 'Players' && `⭐ Players (${favPlayers.length})`}
+                {tab === 'Matches' && `⚽ Matches (${favMatches.length})`}
+              </button>
+            ))}
+          </div>
+
+          {/* Teams */}
+          {activeTab === 'Teams' && (
+            favTeams.length === 0
+              ? <p className="text-muted" style={{ padding: '40px 0', textAlign: 'center' }}>No favorite teams yet.</p>
+              : <div className="grid-4">
+                  {favTeams.map(team => (
+                    <div key={team.id} className="card card-clickable" style={{ textAlign: 'center' }} onClick={() => navigate(`/teams/${team.id}`)}>
+                      <div style={{ fontSize: 48, marginBottom: 8 }}>{team.flag}</div>
+                      <div className="fw-600 mb-4">{team.name}</div>
+                      <div className="caption mb-12">FIFA #{team.rank}</div>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={e => { e.stopPropagation(); toggleFav('teams', team.id, team.name) }}
+                      >
+                        ♥ Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+          )}
+
+          {/* Players */}
+          {activeTab === 'Players' && (
+            favPlayers.length === 0
+              ? <p className="text-muted" style={{ padding: '40px 0', textAlign: 'center' }}>No favorite players yet.</p>
+              : <div className="grid-2">
+                  {favPlayers.map(player => (
+                    <div key={player.id} className="card card-clickable flex gap-12" style={{ alignItems: 'flex-start' }} onClick={() => navigate(`/players/${player.id}`)}>
+                      <div style={{ fontSize: 28, width: 50, height: 50, borderRadius: '50%', background: 'rgba(240,180,41,0.08)', border: '2px solid rgba(240,180,41,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{player.emoji}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="fw-600 mb-4">{player.name} {player.flag}</div>
+                        <div className="caption mb-8">{player.pos} · {player.club}</div>
+                        <div className="flex gap-12">
+                          <div className="pstat"><div className="pstat-val">{player.goals}</div><div className="pstat-lbl">Goals</div></div>
+                          <div className="pstat"><div className="pstat-val">{player.assists}</div><div className="pstat-lbl">Assists</div></div>
+                          <div className="pstat"><div className="pstat-val">{player.rating}</div><div className="pstat-lbl">Rating</div></div>
+                        </div>
+                      </div>
+                      <button className="btn btn-sm btn-outline" onClick={e => { e.stopPropagation(); toggleFav('players', player.id, player.name) }}>♥</button>
+                    </div>
+                  ))}
+                </div>
+          )}
+
+          {/* Matches */}
+          {activeTab === 'Matches' && (
+            favMatches.length === 0
+              ? <p className="text-muted" style={{ padding: '40px 0', textAlign: 'center' }}>No favorite matches yet.</p>
+              : <div className="grid-2">
+                  {favMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}

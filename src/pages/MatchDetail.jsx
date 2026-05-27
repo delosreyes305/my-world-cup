@@ -1,0 +1,312 @@
+import React from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useLang } from '../context/LangContext'
+import { useApp } from '../context/AppContext'
+import { useApi } from '../hooks/useApi'
+import { getMatchStats, getMatchEvents } from '../services/sportsService'
+import { MATCHES } from '../data/mockData'
+import ApiStatus from '../components/common/ApiStatus'
+
+// ─── Dual-color stat bar (gold = home · blue = away) ───
+function StatBar({ label, v1, v2, unit = '' }) {
+  const total = (v1 || 0) + (v2 || 0)
+  const pct   = total ? Math.round((v1 || 0) / total * 100) : 50
+
+  return (
+    <div className="stat-bar">
+      <div className="stat-bar-header">
+        <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{v1}{unit}</span>
+        <span style={{ color: 'var(--text3)', fontSize: 11, textAlign: 'center' }}>{label}</span>
+        <span style={{ color: 'var(--blue)', fontWeight: 700 }}>{v2}{unit}</span>
+      </div>
+      <div style={{
+        height: 5, borderRadius: 3, overflow: 'hidden',
+        display: 'flex', background: 'rgba(255,255,255,0.06)',
+      }}>
+        <div style={{
+          width: `${pct}%`, background: 'var(--gold-grad)',
+          borderRadius: '3px 0 0 3px', transition: 'width 0.9s ease',
+          minWidth: pct > 0 ? 3 : 0,
+        }} />
+        <div style={{
+          flex: 1, background: 'rgba(59,130,246,0.55)',
+          borderRadius: '0 3px 3px 0', transition: 'width 0.9s ease',
+          minWidth: pct < 100 ? 3 : 0,
+        }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Flag: handles URL logo and emoji ──────────────────
+function TeamFlag({ flag, name, size = 64 }) {
+  if (!flag) return (
+    <div style={{ fontSize: size, marginBottom: 8 }} aria-hidden="true">🏳️</div>
+  )
+  if (typeof flag === 'string' && flag.startsWith('http')) {
+    return (
+      <img src={flag} alt={name}
+        style={{ width: size, height: size, objectFit: 'contain', marginBottom: 8 }}
+        onError={e => { e.target.style.display = 'none' }}
+      />
+    )
+  }
+  return (
+    <div style={{ fontSize: size, marginBottom: 8, lineHeight: 1 }} aria-hidden="true">{flag}</div>
+  )
+}
+
+// ─── Event icon (goal / yellow / red / sub / HT) ───────
+function eventIcon(e) {
+  if (e.type === 'Goal')  return '⚽'
+  if (e.type === 'Card')  return e.detail?.toLowerCase().includes('yellow') ? '🟨' : '🟥'
+  if (e.type === 'subst') return '🔄'
+  if (e.type === 'HT')    return '⏸️'
+  if (e.type === 'VAR')   return '📺'
+  return '•'
+}
+
+// ─── Match date helper ─────────────────────────────────
+function formatMatchDate(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
+// ─── Main Component ────────────────────────────────────
+export default function MatchDetail() {
+  const { id }       = useParams()
+  const navigate     = useNavigate()
+  const { state }    = useLocation()
+  const { t, lang }  = useLang()
+  const { toggleFav, isFav } = useApp()
+
+  // Fast path: match passed via navigation state; fallback to mock data
+  const match = state?.match ?? MATCHES.find(m => m.id === Number(id))
+
+  // Stats & events – only for started/finished matches
+  const skip = !match || match.status === 'upcoming'
+
+  const { data: stats,  loading: statsLoad,  error: statsErr  } =
+    useApi(getMatchStats,  Number(id), { skip, ttl: 60_000 })
+  const { data: events, loading: eventsLoad } =
+    useApi(getMatchEvents, Number(id), { skip, ttl: 60_000 })
+
+  // ── 404 ──────────────────────────────────────────────
+  if (!match) return (
+    <div className="page-content" style={{ textAlign: 'center', padding: '80px 0' }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+      <h2>{lang === 'es' ? 'Partido no encontrado' : 'Match not found'}</h2>
+      <button className="btn btn-outline mt-16" onClick={() => navigate('/matches')}>
+        ← {lang === 'es' ? 'Volver' : 'Back'}
+      </button>
+    </div>
+  )
+
+  const { team1, flag1, team2, flag2, score1, score2, status, time, group, venue, stadium, date } = match
+
+  // ── Render ────────────────────────────────────────────
+  return (
+    <div className="page-content page-enter">
+      <button className="btn btn-ghost btn-sm mb-24" onClick={() => navigate('/matches')}>
+        ← {lang === 'es' ? 'Volver' : 'Back'}
+      </button>
+
+      {/* ── Match header card ── */}
+      <div className="card mb-16">
+
+        {/* Top meta row */}
+        <div className="flex-between mb-16">
+          <span className="badge badge-gold">
+            {[group, venue].filter(Boolean).join(' · ')}
+          </span>
+
+          {status === 'live' ? (
+            <div className="flex-center gap-6" style={{ color: 'var(--red)', fontWeight: 700, fontSize: 13 }}>
+              <span className="live-dot" aria-hidden="true" />
+              {lang === 'es' ? 'EN VIVO' : 'LIVE'} {time}
+            </div>
+          ) : status === 'ft' ? (
+            <span className="badge badge-gray">
+              {lang === 'es' ? 'Tiempo completo' : 'Full Time'}
+            </span>
+          ) : (
+            <span className="badge badge-electric">⏰ {time}</span>
+          )}
+        </div>
+
+        {/* Teams + Score */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 20,
+          textAlign: 'center', marginBottom: 20,
+        }}>
+          {/* Home team */}
+          <div style={{ flex: 1 }}>
+            <TeamFlag flag={flag1} name={team1} size={64} />
+            <h2 className="fw-600" style={{ fontSize: 18, lineHeight: 1.3 }}>{team1}</h2>
+          </div>
+
+          {/* Score / VS */}
+          <div style={{ flexShrink: 0, textAlign: 'center' }}>
+            {status !== 'upcoming' ? (
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 56,
+                letterSpacing: 6,
+                lineHeight: 1,
+                marginBottom: 4,
+              }}>
+                <span style={{ color: score1 > score2 ? 'var(--gold)' : 'var(--text)' }}>{score1}</span>
+                <span style={{ color: 'var(--text3)', margin: '0 4px' }}>–</span>
+                <span style={{ color: score2 > score1 ? 'var(--gold)' : 'var(--text)' }}>{score2}</span>
+              </div>
+            ) : (
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 28, color: 'var(--text3)',
+              }}>VS</div>
+            )}
+            {stadium && (
+              <div className="caption" style={{ fontSize: 11, marginTop: 4 }}>🏟️ {stadium}</div>
+            )}
+          </div>
+
+          {/* Away team */}
+          <div style={{ flex: 1 }}>
+            <TeamFlag flag={flag2} name={team2} size={64} />
+            <h2 className="fw-600" style={{ fontSize: 18, lineHeight: 1.3 }}>{team2}</h2>
+          </div>
+        </div>
+
+        {/* Match date */}
+        {date && (
+          <div className="caption" style={{ textAlign: 'center', marginBottom: 16, color: 'var(--text3)' }}>
+            📅 {formatMatchDate(date)}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-8 flex-wrap">
+          <button
+            className={`btn btn-sm ${isFav('matches', match.id) ? 'btn-gold' : 'btn-outline'}`}
+            onClick={() => toggleFav('matches', match.id, `${team1} vs ${team2}`)}
+          >
+            {isFav('matches', match.id)
+              ? `♥ ${lang === 'es' ? 'Guardado' : 'Saved'}`
+              : `♡ ${lang === 'es' ? 'Guardar' : 'Save'}`}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/predict')}>
+            🔮 {lang === 'es' ? 'Predecir con IA' : 'AI Prediction'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Stats + Timeline ── */}
+      <div className="grid-2 mb-16">
+
+        {/* Statistics */}
+        <div className="card">
+          <h3 className="fw-600 mb-12" style={{ fontSize: 15 }}>
+            📊 {lang === 'es' ? 'Estadísticas' : 'Statistics'}
+          </h3>
+
+          {status === 'upcoming' ? (
+            <div className="caption" style={{ color: 'var(--text3)', padding: '24px 0', textAlign: 'center' }}>
+              {lang === 'es'
+                ? 'Las estadísticas estarán disponibles cuando comience el partido.'
+                : 'Statistics will be available once the match starts.'}
+            </div>
+          ) : (
+            <ApiStatus loading={statsLoad} error={statsErr} data={stats}
+              skeleton="none" skeletonCount={5} skeletonHeight={28}>
+              {stats && (
+                <>
+                  {/* Team name labels */}
+                  <div className="flex-between mb-16" style={{ fontSize: 11, fontWeight: 700 }}>
+                    <span style={{ color: 'var(--gold)' }}>{team1}</span>
+                    <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 10 }}>
+                      {lang === 'es' ? 'vs' : 'vs'}
+                    </span>
+                    <span style={{ color: 'var(--blue)' }}>{team2}</span>
+                  </div>
+
+                  <StatBar label={lang === 'es' ? 'Posesión'    : 'Possession'}    v1={stats.possession?.home}    v2={stats.possession?.away}    unit="%" />
+                  <StatBar label={lang === 'es' ? 'Tiros'       : 'Shots'}         v1={stats.shots?.home}         v2={stats.shots?.away} />
+                  <StatBar label={lang === 'es' ? 'A puerta'    : 'On Target'}     v1={stats.shotsOnTarget?.home} v2={stats.shotsOnTarget?.away} />
+                  <StatBar label={lang === 'es' ? 'Corners'     : 'Corners'}       v1={stats.corners?.home}       v2={stats.corners?.away} />
+                  <StatBar label={lang === 'es' ? 'Faltas'      : 'Fouls'}         v1={stats.fouls?.home}         v2={stats.fouls?.away} />
+                  <StatBar label={lang === 'es' ? 'T. amarillas': 'Yellow Cards'}  v1={stats.yellowCards?.home}   v2={stats.yellowCards?.away} />
+                  {(stats.xg?.home || stats.xg?.away) && (
+                    <StatBar label="xG" v1={stats.xg?.home} v2={stats.xg?.away} />
+                  )}
+                </>
+              )}
+            </ApiStatus>
+          )}
+        </div>
+
+        {/* Timeline */}
+        <div className="card">
+          <h3 className="fw-600 mb-12" style={{ fontSize: 15 }}>
+            📋 {lang === 'es' ? 'Timeline' : 'Timeline'}
+          </h3>
+
+          {status === 'upcoming' ? (
+            <div className="caption" style={{ color: 'var(--text3)', padding: '24px 0', textAlign: 'center' }}>
+              {lang === 'es'
+                ? 'El timeline aparecerá cuando empiece el partido.'
+                : 'Timeline will appear once the match kicks off.'}
+            </div>
+          ) : eventsLoad ? (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '24px 0' }}>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton" style={{ width: 8, height: 8, borderRadius: '50%' }} />
+              ))}
+            </div>
+          ) : !(events || []).length ? (
+            <div className="caption" style={{ color: 'var(--text3)', padding: '24px 0', textAlign: 'center' }}>
+              {lang === 'es' ? 'Sin eventos registrados.' : 'No events recorded.'}
+            </div>
+          ) : (
+            <div role="list">
+              {(events || []).map((e, i) => (
+                <div key={i} className="timeline-item" role="listitem">
+                  <div className="timeline-time">{e.time}</div>
+                  <div className="timeline-icon">{eventIcon(e)}</div>
+                  <div className="timeline-desc">
+                    <span>{e.detail}</span>
+                    {e.player && (
+                      <span style={{ fontWeight: 600, marginLeft: 4 }}>— {e.player}</span>
+                    )}
+                    {e.team && (
+                      <div className="caption" style={{ marginTop: 2 }}>{e.team}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Venue ── */}
+      {(venue || stadium) && (
+        <div className="card">
+          <h3 className="fw-600 mb-12" style={{ fontSize: 15 }}>
+            🏟️ {lang === 'es' ? 'Estadio' : 'Venue'}
+          </h3>
+          <div className="flex-between">
+            <div>
+              {venue   && <div className="fw-600">{venue}</div>}
+              {stadium && <div className="caption">{stadium}</div>}
+            </div>
+            <span className="badge badge-blue">FIFA WC 2026</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

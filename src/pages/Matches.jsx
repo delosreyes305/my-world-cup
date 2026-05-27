@@ -170,16 +170,16 @@ export default function Matches() {
     {
       key: 'Live',
       label: liveCount > 0
-        ? `🔴 ${lang === 'es' ? 'En vivo' : 'Live'} (${liveCount})`
-        : `🔴 ${lang === 'es' ? 'En vivo' : 'Live'}`,
+        ? `${lang === 'es' ? 'En vivo' : 'Live'} (${liveCount})`
+        : (lang === 'es' ? 'En vivo' : 'Live'),
     },
     {
       key: 'Upcoming',
-      label: `⏰ ${lang === 'es' ? 'Próximos' : 'Upcoming'}`,
+      label: lang === 'es' ? 'Próximos' : 'Upcoming',
     },
     {
       key: 'Completed',
-      label: `✅ ${lang === 'es' ? 'Finalizados' : 'Completed'}`,
+      label: lang === 'es' ? 'Finalizados' : 'Completed',
     },
   ]
 
@@ -304,7 +304,7 @@ export default function Matches() {
             {upcoming.length > 0 && (
               <section className="mb-24">
                 <SectionLabel color="var(--electric)">
-                  ⏰ {lang === 'es' ? 'Próximos' : 'Upcoming'}
+                  {lang === 'es' ? 'Próximos' : 'Upcoming'}
                 </SectionLabel>
                 <div className="grid-2">
                   {upcoming.map(m => <MatchCard key={m.id} match={m} />)}
@@ -315,7 +315,7 @@ export default function Matches() {
             {ft.length > 0 && (
               <section className="mb-8">
                 <SectionLabel>
-                  ✅ {lang === 'es' ? 'Finalizados' : 'Completed'}
+                  {lang === 'es' ? 'Finalizados' : 'Completed'}
                 </SectionLabel>
                 <div className="grid-2">
                   {ft.map(m => <MatchCard key={m.id} match={m} />)}

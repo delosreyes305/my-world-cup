@@ -29,7 +29,7 @@ export const TEAMS = [
   { id: 12, name: 'Mexico',      flag: '🇲🇽', region: 'CONCACAF',      rank: 16, coach: 'Javier Aguirre',      titles: 0, gf: 5,  ga: 4,  pts: 6,  form: ['D','W','L','W','D'], squad: ['Jiménez','Álvarez J','Lozano','Guardado','Ochoa'], confederation: 'CONCACAF' },
   { id: 13, name: 'Senegal',     flag: '🇸🇳', region: 'Africa',        rank: 20, coach: 'Aliou Cissé',         titles: 0, gf: 4,  ga: 3,  pts: 7,  form: ['W','W','D','L','W'], squad: ['Mané','Sarr','Koulibaly','Diatta','Mendy'], confederation: 'CAF' },
   { id: 14, name: 'Croatia',     flag: '🇭🇷', region: 'Europe',        rank: 9,  coach: 'Zlatko Dalić',        titles: 0, gf: 5,  ga: 3,  pts: 8,  form: ['D','W','W','D','W'], squad: ['Modrić','Kovačić','Gvardiol','Perisić','Livaković'], confederation: 'UEFA' },
-  { id: 15, name: 'Belgium',     flag: '🇧🇪', region: 'Europe',        rank: 3,  coach: 'Domenico Tedesco',    titles: 0, gf: 6,  ga: 5,  pts: 6,  form: ['W','D','L','W','W'], squad: ['De Bruyne','Lukaku','Courtois','Hazard','Tielemans'], confederation: 'UEFA' },
+  { id: 15, name: 'Belgium',     flag: '🇧🇪', region: 'Europe',        rank: 9,  coach: 'Domenico Tedesco',    titles: 0, gf: 6,  ga: 5,  pts: 6,  form: ['W','D','L','W','W'], squad: ['De Bruyne','Lukaku','Courtois','Hazard','Tielemans'], confederation: 'UEFA' },
   { id: 16, name: 'Australia',   flag: '🇦🇺', region: 'Asia',          rank: 25, coach: 'Tony Popovic',        titles: 0, gf: 4,  ga: 4,  pts: 5,  form: ['D','W','L','W','D'], squad: ['Leckie','Hrustic','Irvine','Ryan','Kuol'], confederation: 'AFC' },
 ]
 
@@ -80,15 +80,15 @@ export const GROUPS = {
 }
 
 export const NEWS = [
-  { id: 1, cat: 'BREAKING',     emoji: '⚡', title: "Messi scores brace to lead Argentina into semifinals",            time: '5 min ago',  color: '#f0b429' },
-  { id: 2, cat: 'MATCH REPORT', emoji: '⚽', title: 'Spain dominate Germany with clinical counter-attack football',    time: '1 hour ago', color: '#3b82f6' },
-  { id: 3, cat: 'INJURY',       emoji: '🚑', title: "Mbappé injury scare but cleared to play vs Argentina",           time: '2 hours ago',color: '#ef4444' },
-  { id: 4, cat: 'WORLD CUP',    emoji: '🏆', title: '2026 World Cup breaks all-time global viewership records',        time: '3 hours ago',color: '#10b981' },
-  { id: 5, cat: 'TRANSFER',     emoji: '💰', title: 'World Cup stars attracting €500M+ in summer transfer interest',  time: '5 hours ago',color: '#f97316' },
-  { id: 6, cat: 'TRENDING',     emoji: '🔥', title: "Morocco's Walid Regragui named best coach of tournament",        time: '6 hours ago',color: '#06b6d4' },
-  { id: 7, cat: 'HISTORY',      emoji: '📚', title: 'Brazil chase record 6th World Cup title — can they do it?',      time: '8 hours ago',color: '#8b5cf6' },
-  { id: 8, cat: 'FANZONE',      emoji: '🎉', title: '1.5 billion viewers watched Germany vs Spain clash',             time: '12 hours ago',color: '#ec4899' },
-  { id: 9, cat: 'STATS',        emoji: '📊', title: 'xG analysis: Spain are the most clinical team left in WC',      time: '1 day ago',  color: '#64748b' },
+  { id: 1, cat: 'BREAKING',     emoji: '⚡', image: 'https://picsum.photos/seed/wc-goal-1/640/360',    title: "Messi scores brace to lead Argentina into semifinals",            time: '5 min ago',   color: '#f0b429' },
+  { id: 2, cat: 'MATCH REPORT', emoji: '⚽', image: 'https://picsum.photos/seed/wc-match-2/640/360',  title: 'Spain dominate Germany with clinical counter-attack football',    time: '1 hour ago',  color: '#3b82f6' },
+  { id: 3, cat: 'INJURY',       emoji: '🚑', image: 'https://picsum.photos/seed/wc-injury-3/640/360', title: "Mbappé injury scare but cleared to play vs Argentina",           time: '2 hours ago', color: '#ef4444' },
+  { id: 4, cat: 'WORLD CUP',    emoji: '🏆', image: 'https://picsum.photos/seed/wc-crowd-4/640/360',  title: '2026 World Cup breaks all-time global viewership records',        time: '3 hours ago', color: '#10b981' },
+  { id: 5, cat: 'TRANSFER',     emoji: '💰', image: 'https://picsum.photos/seed/wc-transfer-5/640/360',title: 'World Cup stars attracting €500M+ in summer transfer interest', time: '5 hours ago', color: '#f97316' },
+  { id: 6, cat: 'TRENDING',     emoji: '🔥', image: 'https://picsum.photos/seed/wc-coach-6/640/360',  title: "Morocco's Walid Regragui named best coach of tournament",        time: '6 hours ago', color: '#06b6d4' },
+  { id: 7, cat: 'HISTORY',      emoji: '📚', image: 'https://picsum.photos/seed/wc-brazil-7/640/360', title: 'Brazil chase record 6th World Cup title — can they do it?',      time: '8 hours ago', color: '#8b5cf6' },
+  { id: 8, cat: 'FANZONE',      emoji: '🎉', image: 'https://picsum.photos/seed/wc-fans-8/640/360',   title: '1.5 billion viewers watched Germany vs Spain clash',             time: '12 hours ago',color: '#ec4899' },
+  { id: 9, cat: 'STATS',        emoji: '📊', image: 'https://picsum.photos/seed/wc-stats-9/640/360',  title: 'xG analysis: Spain are the most clinical team left in WC',      time: '1 day ago',   color: '#64748b' },
 ]
 
 export const TRIVIA_BANK = [

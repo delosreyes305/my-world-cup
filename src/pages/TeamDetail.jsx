@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useApp } from '../context/AppContext'
 import { useApi } from '../hooks/useApi'
-import { getTeams, getAllTeamPlayers, getTeamFixtures, getStandings } from '../services/sportsService'
+import { getTeams, getAllTeamPlayers, getTeamFixtures, getStandings, TEAM_METADATA } from '../services/sportsService'
 
 // ─── Sub-components ──────────────────────────────────
 
@@ -86,6 +86,20 @@ export default function TeamDetail() {
     return entry ?? [null, null]
   }, [standings, team])
 
+  // Guaranteed rank/titles: team object first, then static map as fallback.
+  // Use || (not ??) so that 0 also falls through to the metadata lookup.
+  const meta   = TEAM_METADATA[team?.name] || {}
+  const rank   = team?.rank   || meta.rank   || null
+  const titles = team?.titles || meta.titles || 0
+
+  // Key Players: top 4 by rating descending (hook must stay before early returns)
+  const topPlayers = useMemo(() => {
+    if (!squad?.length) return []
+    return [...squad]
+      .sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0))
+      .slice(0, 4)
+  }, [squad])
+
   // ── Loading skeleton while teams list is still loading ──
   if (!team && !teams) {
     return (
@@ -104,15 +118,12 @@ export default function TeamDetail() {
   // ── 404 ──
   if (!team) return (
     <div className="page-content" style={{ textAlign: 'center', padding: '80px 0' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
       <h2>{lang === 'es' ? 'Equipo no encontrado' : 'Team not found'}</h2>
       <button className="btn btn-outline mt-16" onClick={() => navigate('/teams')}>
         ← {lang === 'es' ? 'Volver' : 'Back'}
       </button>
     </div>
   )
-
-  const topPlayers = (squad || []).slice(0, 4)
 
   return (
     <div className="page-content page-enter">
@@ -162,12 +173,12 @@ export default function TeamDetail() {
             <div className="flex gap-8 flex-wrap">
               <button
                 className={`btn btn-sm ${isFav('teams', team.id) ? 'btn-gold' : 'btn-outline'}`}
-                onClick={() => toggleFav('teams', team.id, team.name)}
+                onClick={() => toggleFav('teams', team)}
               >
                 {isFav('teams', team.id) ? '♥ Favorited' : '♡ Add to Favorites'}
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/predict')}>
-                🔮 {lang === 'es' ? 'Predecir partido' : 'Predict Match'}
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/predict', { state: { preselect: team.id } })}>
+                {lang === 'es' ? 'Predecir partido' : 'Predict Match'}
               </button>
             </div>
           </div>
@@ -179,7 +190,7 @@ export default function TeamDetail() {
         {[
           {
             label: lang === 'es' ? 'Ranking FIFA' : 'FIFA Rank',
-            val:   team.rank ? `#${team.rank}` : '—',
+            val:   rank != null ? `#${rank}` : '—',
           },
           {
             label: lang === 'es' ? 'Fundado' : 'Founded',
@@ -187,7 +198,7 @@ export default function TeamDetail() {
           },
           {
             label: lang === 'es' ? 'Títulos mundiales' : 'WC Titles',
-            val:   team.titles > 0 ? '🏆'.repeat(Math.min(team.titles, 5)) : '—',
+            val:   titles > 0 ? titles : '—',
           },
           {
             label: lang === 'es' ? 'Puntos' : 'Group Pts',
@@ -207,7 +218,7 @@ export default function TeamDetail() {
         {/* Team Info */}
         <div className="card">
           <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>
-            ℹ️ {lang === 'es' ? 'Información del equipo' : 'Team Info'}
+            {lang === 'es' ? 'Información del equipo' : 'Team Info'}
           </h2>
 
           {[
@@ -254,7 +265,7 @@ export default function TeamDetail() {
         {/* Tournament Matches */}
         <div className="card">
           <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>
-            ⚽ {lang === 'es' ? 'Partidos del torneo' : 'Tournament Matches'}
+            {lang === 'es' ? 'Partidos del torneo' : 'Tournament Matches'}
           </h2>
 
           {fixtureLoad ? (
@@ -265,7 +276,7 @@ export default function TeamDetail() {
             </div>
           ) : !fixtures?.length ? (
             <div className="caption" style={{ color: 'var(--text3)', textAlign: 'center', padding: '28px 0' }}>
-              📅 {lang === 'es' ? 'Partidos por confirmar' : 'Schedule TBD'}
+              {lang === 'es' ? 'Partidos por confirmar' : 'Schedule TBD'}
             </div>
           ) : (
             fixtures.map(m => (
@@ -281,13 +292,13 @@ export default function TeamDetail() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', flex: 1 }}>
                     <MatchFlag flag={m.flag1} name={m.team1} />
-                    <span className="fw-600">{m.team1}</span>
+                    <span className="fw-600" style={{ color: 'var(--text)' }}>{m.team1}</span>
                     <span style={{ color: 'var(--text3)', margin: '0 4px' }}>
                       {m.score1 !== null && m.score2 !== null
                         ? `${m.score1}–${m.score2}`
                         : 'vs'}
                     </span>
-                    <span className="fw-600">{m.team2}</span>
+                    <span className="fw-600" style={{ color: 'var(--text)' }}>{m.team2}</span>
                     <MatchFlag flag={m.flag2} name={m.team2} />
                   </div>
                   <span
@@ -311,7 +322,7 @@ export default function TeamDetail() {
       {groupLetter && groupRows && (
         <div className="card mb-16">
           <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>
-            📊 {lang === 'es'
+            {lang === 'es'
               ? `Grupo ${groupLetter} — Clasificación`
               : `Group ${groupLetter} Standings`}
           </h2>
@@ -362,7 +373,7 @@ export default function TeamDetail() {
       <div className="card">
         <div className="flex-between mb-16">
           <h2 className="fw-600" style={{ fontSize: 15, margin: 0 }}>
-            ⭐ {lang === 'es' ? 'Jugadores destacados' : 'Key Players'}
+            {lang === 'es' ? 'Jugadores destacados' : 'Key Players'}
           </h2>
           {squad && squad.length > 4 && (
             <button className="see-all"
@@ -401,7 +412,7 @@ export default function TeamDetail() {
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                   <PlayerPhoto photo={p.photo} emoji={p.emoji} size={52} />
                 </div>
-                <div className="fw-600" style={{ fontSize: 12, marginBottom: 4, lineHeight: 1.3 }}>
+                <div className="fw-600" style={{ fontSize: 12, marginBottom: 4, lineHeight: 1.3, color: 'var(--text)' }}>
                   {p.name}
                 </div>
                 <div style={{ marginBottom: 6 }}>
@@ -415,7 +426,7 @@ export default function TeamDetail() {
                   </span>
                 </div>
                 {p.club && (
-                  <div className="caption" style={{ fontSize: 10, marginBottom: 6, color: 'var(--text3)' }}>
+                  <div className="caption" style={{ fontSize: 10, marginBottom: 6, color: 'var(--text)' }}>
                     {p.club}
                   </div>
                 )}

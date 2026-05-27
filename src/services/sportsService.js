@@ -126,6 +126,72 @@ export async function getStandings() {
 // EQUIPOS
 // ─────────────────────────────────────────────────────
 
+/**
+ * Static FIFA rank + WC title data for all 48 WC 2026 teams.
+ * Exported so components can use it as a reliable fallback lookup
+ * when the team object came from stale navigation state or cache.
+ *
+ * FIFA rankings change monthly; this is an approximate snapshot for 2026.
+ * WC titles are historical facts that never change.
+ * Keyed by the exact team name returned by the API.
+ */
+export const TEAM_METADATA = {
+  // ── UEFA (16) ──────────────────────────────────────────
+  Argentina:              { rank:  1, titles: 3 }, // 1978, 1986, 2022
+  Spain:                  { rank:  2, titles: 1 }, // 2010
+  France:                 { rank:  3, titles: 2 }, // 1998, 2018
+  England:                { rank:  5, titles: 1 }, // 1966
+  Portugal:               { rank:  6, titles: 0 },
+  Netherlands:            { rank:  7, titles: 0 },
+  Belgium:                { rank:  9, titles: 0 },
+  Germany:                { rank: 10, titles: 4 }, // 1954, 1974, 1990, 2014
+  Croatia:                { rank: 12, titles: 0 },
+  Switzerland:            { rank: 19, titles: 0 },
+  Sweden:                 { rank: 30, titles: 0 },
+  Austria:                { rank: 31, titles: 0 },
+  'Czech Republic':       { rank: 40, titles: 0 },
+  Scotland:               { rank: 38, titles: 0 },
+  Norway:                 { rank: 43, titles: 0 },
+  'Türkiye':              { rank: 36, titles: 0 },
+  'Bosnia & Herzegovina': { rank: 59, titles: 0 },
+  // ── CONMEBOL (6) ──────────────────────────────────────
+  Brazil:                 { rank:  4, titles: 5 }, // 1958, 1962, 1970, 1994, 2002
+  Colombia:               { rank: 14, titles: 0 },
+  Uruguay:                { rank: 21, titles: 2 }, // 1930, 1950
+  Ecuador:                { rank: 44, titles: 0 },
+  Paraguay:               { rank: 65, titles: 0 },
+  // ── CONCACAF (6) ──────────────────────────────────────
+  USA:                    { rank: 11, titles: 0 },
+  Mexico:                 { rank: 16, titles: 0 },
+  Canada:                 { rank: 48, titles: 0 },
+  Panama:                 { rank: 72, titles: 0 },
+  'Curaçao':              { rank: 85, titles: 0 },
+  Haiti:                  { rank: 89, titles: 0 },
+  // ── CAF (10) ──────────────────────────────────────────
+  Morocco:                { rank: 13, titles: 0 },
+  Senegal:                { rank: 20, titles: 0 },
+  Algeria:                { rank: 35, titles: 0 },
+  Tunisia:                { rank: 41, titles: 0 },
+  Egypt:                  { rank: 37, titles: 0 },
+  'Ivory Coast':          { rank: 55, titles: 0 },
+  'Congo DR':             { rank: 54, titles: 0 },
+  Ghana:                  { rank: 61, titles: 0 },
+  'South Africa':         { rank: 63, titles: 0 },
+  'Cape Verde Islands':   { rank: 83, titles: 0 },
+  // ── AFC (9) ───────────────────────────────────────────
+  Japan:                  { rank: 18, titles: 0 },
+  'South Korea':          { rank: 23, titles: 0 },
+  Iran:                   { rank: 26, titles: 0 },
+  Australia:              { rank: 25, titles: 0 },
+  Jordan:                 { rank: 70, titles: 0 },
+  Uzbekistan:             { rank: 74, titles: 0 },
+  Iraq:                   { rank: 68, titles: 0 },
+  Qatar:                  { rank: 58, titles: 0 },
+  'Saudi Arabia':         { rank: 64, titles: 0 },
+  // ── OFC (1) ───────────────────────────────────────────
+  'New Zealand':          { rank: 97, titles: 0 },
+}
+
 /** Static confederation mapping for all 48 WC 2026 teams */
 const CONFEDERATION_MAP = {
   // UEFA – 16
@@ -160,19 +226,21 @@ export async function getTeams() {
     { headers }
   )
   return (data.response || []).map(r => {
-    const confederation = CONFEDERATION_MAP[r.team.name] || 'Other'
+    const name          = r.team.name
+    const confederation = CONFEDERATION_MAP[name] || 'Other'
+    const meta          = TEAM_METADATA[name] || { rank: null, titles: 0 }
     return {
       id:            r.team.id,
-      name:          r.team.name,
+      name,
       code:          r.team.code  || '',
       flag:          r.team.logo,        // HTTPS image URL
       country:       r.team.country,
       founded:       r.team.founded || null,
       confederation,
       region:        confederation,      // alias used by filter
-      rank:          null,
+      rank:          meta.rank,
+      titles:        meta.titles,
       coach:         null,
-      titles:        0,
       gf: 0, ga: 0, pts: 0,
       mp: 0, w: 0, d: 0, l: 0,
       form:          [],

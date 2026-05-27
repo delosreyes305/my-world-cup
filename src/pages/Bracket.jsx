@@ -111,6 +111,7 @@ function GroupTable({ letter, teams, lang }) {
       <h3 className="fw-600 mb-10" style={{ fontSize: 13, color: 'var(--gold)' }}>
         {lang === 'es' ? 'Grupo' : 'Group'} {letter}
       </h3>
+      <div style={{ overflowX: 'auto' }}>
       <table className="data-table" aria-label={`Group ${letter}`}>
         <thead>
           <tr>
@@ -151,6 +152,7 @@ function GroupTable({ letter, teams, lang }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

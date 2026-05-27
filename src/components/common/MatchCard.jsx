@@ -19,7 +19,7 @@ function TeamFlag({ flag, name, size = 34 }) {
 export default function MatchCard({ match }) {
   const navigate = useNavigate()
   const { toggleFav, isFav } = useApp()
-  const { id, team1, flag1, team2, flag2, score1, score2, status, time, group, stadium } = match
+  const { id, team1, flag1, team2, flag2, score1, score2, status, time, group, venue, stadium } = match
 
   const statusEl = status === 'live'
     ? <div className="match-live"><span className="live-dot" aria-hidden="true" />{time}</div>
@@ -45,9 +45,14 @@ export default function MatchCard({ match }) {
       aria-label={`${team1} vs ${team2}${group ? `, ${group}` : ''}`}
     >
       <div className="match-card-meta">
-        <span className="badge badge-gold">
-          {[group, stadium].filter(Boolean).join(' · ')}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span className="badge badge-gold">{group || '—'}</span>
+          {(venue || stadium) && (
+            <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+              {[venue, stadium].filter(Boolean).join(' · ')}
+            </span>
+          )}
+        </div>
         {statusEl}
       </div>
 
@@ -71,7 +76,7 @@ export default function MatchCard({ match }) {
 
       <button
         className={`fav-btn${isFav('matches', id) ? ' active' : ''}`}
-        onClick={e => { e.stopPropagation(); toggleFav('matches', id, `${team1} vs ${team2}`) }}
+        onClick={e => { e.stopPropagation(); toggleFav('matches', { ...match, name: `${team1} vs ${team2}` }) }}
         aria-label={`${isFav('matches', id) ? 'Remove from' : 'Add to'} favorites`}
         style={{ position: 'absolute', bottom: 12, right: 12 }}
       >

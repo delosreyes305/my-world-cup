@@ -234,7 +234,7 @@ export default function Players() {
 
               <button
                 className={`fav-btn${isFav('players', player.id) ? ' active' : ''}`}
-                onClick={e => { e.stopPropagation(); toggleFav('players', player.id, player.name) }}
+                onClick={e => { e.stopPropagation(); toggleFav('players', player) }}
                 aria-label={lang === 'es'
                   ? `${isFav('players', player.id) ? 'Quitar de' : 'Agregar a'} favoritos`
                   : `${isFav('players', player.id) ? 'Remove from' : 'Add to'} favorites`}>

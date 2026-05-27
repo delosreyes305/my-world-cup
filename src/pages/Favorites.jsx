@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useLang } from '../context/LangContext'
-import { TEAMS, PLAYERS, MATCHES } from '../data/mockData'
 import MatchCard from '../components/common/MatchCard'
 import '../components/common/MatchCard.css'
 
@@ -14,9 +13,10 @@ export default function Favorites() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('Teams')
 
-  const favTeams   = TEAMS.filter(tm => favorites.teams.includes(tm.id))
-  const favPlayers = PLAYERS.filter(p  => favorites.players.includes(p.id))
-  const favMatches = MATCHES.filter(m  => favorites.matches.includes(m.id))
+  // favorites now stores full objects — no secondary lookup against mock data needed
+  const favTeams   = (favorites.teams   || []).filter(x => x?.id != null)
+  const favPlayers = (favorites.players || []).filter(x => x?.id != null)
+  const favMatches = (favorites.matches || []).filter(x => x?.id != null)
 
   const isEmpty = !favTeams.length && !favPlayers.length && !favMatches.length
 
@@ -67,13 +67,16 @@ export default function Favorites() {
               ? <p className="text-muted" style={{ padding: '40px 0', textAlign: 'center' }}>No favorite teams yet.</p>
               : <div className="grid-4">
                   {favTeams.map(team => (
-                    <div key={team.id} className="card card-clickable" style={{ textAlign: 'center' }} onClick={() => navigate(`/teams/${team.id}`)}>
-                      <div style={{ fontSize: 48, marginBottom: 8 }}>{team.flag}</div>
+                    <div key={team.id} className="card card-clickable" style={{ textAlign: 'center' }} onClick={() => navigate(`/teams/${team.id}`, { state: { team } })}>
+                      {team.flag && typeof team.flag === 'string' && team.flag.startsWith('http')
+                        ? <img src={team.flag} alt={team.name} style={{ width: 56, height: 56, objectFit: 'contain', marginBottom: 8 }} onError={e => { e.target.style.display = 'none' }} />
+                        : <div style={{ fontSize: 48, marginBottom: 8 }}>{team.flag || '🏳️'}</div>
+                      }
                       <div className="fw-600 mb-4">{team.name}</div>
-                      <div className="caption mb-12">FIFA #{team.rank}</div>
+                      <div className="caption mb-12">{team.rank ? `FIFA #${team.rank}` : team.confederation || '—'}</div>
                       <button
                         className="btn btn-sm btn-outline"
-                        onClick={e => { e.stopPropagation(); toggleFav('teams', team.id, team.name) }}
+                        onClick={e => { e.stopPropagation(); toggleFav('teams', team) }}
                       >
                         ♥ Remove
                       </button>
@@ -88,8 +91,11 @@ export default function Favorites() {
               ? <p className="text-muted" style={{ padding: '40px 0', textAlign: 'center' }}>No favorite players yet.</p>
               : <div className="grid-2">
                   {favPlayers.map(player => (
-                    <div key={player.id} className="card card-clickable flex gap-12" style={{ alignItems: 'flex-start' }} onClick={() => navigate(`/players/${player.id}`)}>
-                      <div style={{ fontSize: 28, width: 50, height: 50, borderRadius: '50%', background: 'rgba(240,180,41,0.08)', border: '2px solid rgba(240,180,41,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{player.emoji}</div>
+                    <div key={player.id} className="card card-clickable flex gap-12" style={{ alignItems: 'flex-start' }} onClick={() => navigate(`/players/${player.id}`, { state: { player } })}>
+                      {player.photo
+                        ? <img src={player.photo} alt={player.name} style={{ width: 50, height: 50, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(240,180,41,0.2)', flexShrink: 0 }} onError={e => { e.target.style.display = 'none' }} />
+                        : <div style={{ fontSize: 28, width: 50, height: 50, borderRadius: '50%', background: 'rgba(240,180,41,0.08)', border: '2px solid rgba(240,180,41,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{player.emoji || '⭐'}</div>
+                      }
                       <div style={{ flex: 1 }}>
                         <div className="fw-600 mb-4">{player.name} {player.flag}</div>
                         <div className="caption mb-8">{player.pos} · {player.club}</div>
@@ -99,7 +105,7 @@ export default function Favorites() {
                           <div className="pstat"><div className="pstat-val">{player.rating}</div><div className="pstat-lbl">Rating</div></div>
                         </div>
                       </div>
-                      <button className="btn btn-sm btn-outline" onClick={e => { e.stopPropagation(); toggleFav('players', player.id, player.name) }}>♥</button>
+                      <button className="btn btn-sm btn-outline" onClick={e => { e.stopPropagation(); toggleFav('players', player) }}>♥</button>
                     </div>
                   ))}
                 </div>

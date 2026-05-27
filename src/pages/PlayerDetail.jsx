@@ -69,7 +69,7 @@ export default function PlayerDetail() {
             <div className="flex gap-8 flex-wrap">
               <button
                 className={`btn btn-sm ${isFav('players', player.id) ? 'btn-gold' : 'btn-outline'}`}
-                onClick={() => toggleFav('players', player.id, player.name)}
+                onClick={() => toggleFav('players', player)}
               >
                 {isFav('players', player.id) ? '♥ Favorited' : '♡ Add to Favorites'}
               </button>

@@ -10,12 +10,12 @@ const CONFEDERATIONS = ['All', 'UEFA', 'CONMEBOL', 'CONCACAF', 'CAF', 'AFC', 'OF
 
 const CONF_LABEL = {
   All: 'All Teams',
-  UEFA: '🌍 UEFA',
-  CONMEBOL: '🌎 CONMEBOL',
-  CONCACAF: '🌎 CONCACAF',
-  CAF: '🌍 CAF',
-  AFC: '🌏 AFC',
-  OFC: '🌏 OFC',
+  UEFA: 'UEFA',
+  CONMEBOL: 'CONMEBOL',
+  CONCACAF: 'CONCACAF',
+  CAF: 'CAF',
+  AFC: 'AFC',
+  OFC: 'OFC',
 }
 
 function TeamFlag({ flag, name, size = 64 }) {
@@ -167,7 +167,7 @@ export default function Teams() {
 
               <button
                 className={`fav-btn${isFav('teams', team.id) ? ' active' : ''}`}
-                onClick={e => { e.stopPropagation(); toggleFav('teams', team.id, team.name) }}
+                onClick={e => { e.stopPropagation(); toggleFav('teams', team) }}
                 aria-label={`${isFav('teams', team.id) ? 'Remove from' : 'Add to'} favorites`}
                 style={{ marginTop: 12 }}
               >

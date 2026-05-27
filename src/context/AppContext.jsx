@@ -4,10 +4,23 @@ const AppContext = createContext(null)
 
 const defaultFavs = { teams: [], players: [], matches: [] }
 
+// Migrate stored data: old format stored raw IDs (numbers); new format stores full objects.
+// Any non-object entries are dropped — they can't be displayed without full data.
+function migrateFavs(raw) {
+  const clean = arr =>
+    Array.isArray(arr) ? arr.filter(x => x && typeof x === 'object' && x.id != null) : []
+  return {
+    teams:   clean(raw?.teams),
+    players: clean(raw?.players),
+    matches: clean(raw?.matches),
+  }
+}
+
 export function AppProvider({ children }) {
   const [favorites, setFavorites] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('mwc_favs')) || defaultFavs
+      const stored = JSON.parse(localStorage.getItem('mwc_favs'))
+      return stored ? migrateFavs(stored) : defaultFavs
     } catch {
       return defaultFavs
     }
@@ -25,22 +38,24 @@ export function AppProvider({ children }) {
     setTimeout(() => setToast(null), duration)
   }, [])
 
-  const toggleFav = useCallback((type, id, name = '') => {
+  // item must be a full object with at least { id, name }
+  const toggleFav = useCallback((type, item) => {
+    if (!item || item.id == null) return
     setFavorites(prev => {
       const arr = prev[type] || []
-      const isIn = arr.includes(id)
+      const isIn = arr.some(x => x?.id === item.id)
       if (isIn) {
         showToast(`Removed from favorites`)
-        return { ...prev, [type]: arr.filter(x => x !== id) }
+        return { ...prev, [type]: arr.filter(x => x?.id !== item.id) }
       } else {
-        showToast(`${name || 'Item'} added to favorites ♥`)
-        return { ...prev, [type]: [...arr, id] }
+        showToast(`${item.name || 'Item'} added to favorites ♥`)
+        return { ...prev, [type]: [...arr, item] }
       }
     })
   }, [showToast])
 
   const isFav = useCallback((type, id) => {
-    return (favorites[type] || []).includes(id)
+    return (favorites[type] || []).some(x => x?.id === id)
   }, [favorites])
 
   return (

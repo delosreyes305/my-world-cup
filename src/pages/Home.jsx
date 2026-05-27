@@ -2,9 +2,9 @@ import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useApi, useApiPolling } from '../hooks/useApi'
-import { getLiveMatches, getStandings, getTopScorers } from '../services/sportsService'
-import { getHeadlines } from '../services/newsService'
-import { TEAMS, PLAYERS, GROUPS } from '../data/mockData'
+import { getLiveMatches, getStandings, getTopScorers, getTeams } from '../services/sportsService'
+import { getNews } from '../services/newsService'
+import { TEAMS, GROUPS } from '../data/mockData'
 import MatchCard from '../components/common/MatchCard'
 import ApiStatus from '../components/common/ApiStatus'
 import '../components/common/MatchCard.css'
@@ -78,11 +78,11 @@ export default function Home() {
 
   const { data: liveMatches, loading: liveLoad } = useApiPolling(getLiveMatches, 30_000)
   const { data: standings  }                      = useApi(getStandings,   { ttl: 3_600_000 })
-  const { data: headlines  }                      = useApi(getHeadlines,   { ttl: 120_000 })
-  const { data: scorers, loading: scorersLoad } = useApi(getTopScorers, { ttl: 3_600_000 })
+  const { data: allTeams   }                      = useApi(getTeams,       { ttl: 3_600_000 })
+  const { data: headlines  }                      = useApi(getNews, 'all', 6, { ttl: 120_000 })
+  const { data: scorers, loading: scorersLoad }   = useApi(getTopScorers,  { ttl: 3_600_000 })
 
   // Sort: rating first → goals as tiebreaker
-  // No mock fallback — always use real API data
   const topPlayers = useMemo(() => {
     if (!scorers) return []
     return [...scorers]
@@ -93,13 +93,14 @@ export default function Home() {
       .slice(0, 4)
   }, [scorers])
 
-  // FIFA ranking: top 5 teams sorted by rank (mock data has real ranks)
+  // FIFA ranking: top 5 by rank — use API data (has TEAM_METADATA ranks, no dupes),
+  // fall back to fixed mock TEAMS only when API hasn't loaded yet
   const rankedTeams = useMemo(() =>
-    [...TEAMS]
+    [...(allTeams || TEAMS)]
       .filter(t => t.rank)
       .sort((a, b) => a.rank - b.rank)
       .slice(0, 5)
-  , [])
+  , [allTeams])
 
   const displayMatches = liveMatches?.length ? liveMatches.slice(0,4) : []
 
@@ -128,13 +129,13 @@ export default function Home() {
         )}
       </section>
 
-      {/* Groups + Form */}
+      {/* Groups + Ranking */}
       <section className="grid-2 mb-24">
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="section-header mb-16">
             <h2 className="section-title"> <span>{t('home','group_stage')}</span></h2>
           </div>
-          <div className="card">
+          <div className="card" style={{ flex: 1 }}>
             <div className="tabs" role="tablist">
               {['A','B','C','D','E','F','G','H','I','J','K','L'].map(g => (
                 <button key={g} className={`tab${activeGroup===g?' active':''}`}
@@ -146,11 +147,11 @@ export default function Home() {
             <GroupTable group={activeGroup} groups={standings} />
           </div>
         </div>
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="section-header mb-16">
             <h2 className="section-title"><span>{t('home','ranking')}</span></h2>
           </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
             {rankedTeams.map((team, i) => (
               <button key={team.id}
                 className="card-clickable"
@@ -186,7 +187,7 @@ export default function Home() {
 
                 {/* Name + confederation */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="fw-600" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div className="fw-600" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>
                     {team.name}
                   </div>
                   <div className="caption" style={{ fontSize: 10 }}>{team.confederation}</div>
@@ -281,7 +282,7 @@ export default function Home() {
                 {/* Name + subtitle + goal bar */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
-                    <span className="fw-600" style={{ fontSize:14, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    <span className="fw-600" style={{ fontSize:14, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'var(--text)' }}>
                       {p.name}
                     </span>
                     {p.flag && <span style={{ opacity:0.5, fontSize:12, flexShrink:0 }}>{p.flag}</span>}
@@ -328,18 +329,23 @@ export default function Home() {
           <h2 className="section-title"> <span>{t('home','latest_news')}</span></h2>
           <button className="see-all" onClick={() => navigate('/news')}>{t('common','see_all')} →</button>
         </div>
-        <div className="grid-4">
-          {(headlines || []).slice(0,4).map((n,i) => (
-            <article key={n.id||i} className="news-card card card-clickable"
-              onClick={() => n.url && window.open(n.url,'_blank','noopener')}>
+        <div className="grid-3">
+          {(headlines || []).slice(0, 6).map((n, i) => (
+            <article key={n.id || i} className="news-card card card-clickable"
+              onClick={() => n.url && window.open(n.url, '_blank', 'noopener')}>
               <div className="news-img"
-                style={{ background:`linear-gradient(135deg,${n.color}22,${n.color}08)` }}>
-                {n.emoji}
+                style={n.image ? {} : { background: `linear-gradient(135deg,${n.color}22,${n.color}08)` }}>
+                {n.image
+                  ? <img src={n.image} alt={n.title}
+                      onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.background = `linear-gradient(135deg,${n.color}22,${n.color}08)`; e.target.parentNode.innerHTML += n.emoji }}
+                    />
+                  : n.emoji
+                }
               </div>
               <div className="news-body">
-                <div className="news-cat" style={{ color:n.color }}>{n.cat}</div>
+                <div className="news-cat" style={{ color: n.color }}>{n.cat}</div>
                 <h3 className="news-title">{n.title}</h3>
-                <div className="caption">🕐 {n.time}</div>
+                <div className="caption">{n.time}</div>
               </div>
             </article>
           ))}

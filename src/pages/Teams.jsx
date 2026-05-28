@@ -150,7 +150,7 @@ export default function Teams() {
                 ) : team.founded ? (
                   <div className="team-stat" role="listitem">
                     <div className="team-stat-val">{team.founded}</div>
-                    <div className="team-stat-lbl">{lang === 'es' ? 'Fundado' : 'Founded'}</div>
+                    <div className="team-stat-lbl">{t('common','founded')}</div>
                   </div>
                 ) : null}
                 <div className="team-stat" role="listitem">
@@ -168,7 +168,7 @@ export default function Teams() {
               <button
                 className={`fav-btn${isFav('teams', team.id) ? ' active' : ''}`}
                 onClick={e => { e.stopPropagation(); toggleFav('teams', team) }}
-                aria-label={`${isFav('teams', team.id) ? 'Remove from' : 'Add to'} favorites`}
+                aria-label={isFav('teams', team.id) ? t('favorites','remove') : t('common','add_fav')}
                 style={{ marginTop: 12 }}
               >
                 ♥

@@ -67,9 +67,9 @@ function eventIcon(e) {
 }
 
 // ─── Match date helper ─────────────────────────────────
-function formatMatchDate(iso) {
+function formatMatchDate(iso, lang) {
   if (!iso) return null
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -98,9 +98,9 @@ export default function MatchDetail() {
   if (!match) return (
     <div className="page-content" style={{ textAlign: 'center', padding: '80px 0' }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-      <h2>{lang === 'es' ? 'Partido no encontrado' : 'Match not found'}</h2>
+      <h2>{t('match','not_found')}</h2>
       <button className="btn btn-outline mt-16" onClick={() => navigate('/matches')}>
-        ← {lang === 'es' ? 'Volver' : 'Back'}
+        ← {t('common','back')}
       </button>
     </div>
   )
@@ -111,7 +111,7 @@ export default function MatchDetail() {
   return (
     <div className="page-content page-enter">
       <button className="btn btn-ghost btn-sm mb-24" onClick={() => navigate('/matches')}>
-        ← {lang === 'es' ? 'Volver' : 'Back'}
+        ← {t('common','back')}
       </button>
 
       {/* ── Match header card ── */}
@@ -120,20 +120,20 @@ export default function MatchDetail() {
         {/* Top meta row */}
         <div className="flex-between mb-16">
           <span className="badge badge-gold">
-            {[group, venue].filter(Boolean).join(' · ')}
+            {group || '—'}
           </span>
 
           {status === 'live' ? (
             <div className="flex-center gap-6" style={{ color: 'var(--red)', fontWeight: 700, fontSize: 13 }}>
               <span className="live-dot" aria-hidden="true" />
-              {lang === 'es' ? 'EN VIVO' : 'LIVE'} {time}
+              {t('common','live')} {time}
             </div>
           ) : status === 'ft' ? (
             <span className="badge badge-gray">
-              {lang === 'es' ? 'Tiempo completo' : 'Full Time'}
+              {t('common','full_time')}
             </span>
           ) : (
-            <span className="badge badge-electric">⏰ {time}</span>
+            <span className="badge badge-electric">{time}</span>
           )}
         </div>
 
@@ -169,8 +169,10 @@ export default function MatchDetail() {
                 fontSize: 28, color: 'var(--text3)',
               }}>VS</div>
             )}
-            {stadium && (
-              <div className="caption" style={{ fontSize: 11, marginTop: 4 }}>🏟️ {stadium}</div>
+            {(venue || stadium) && (
+              <div className="caption" style={{ fontSize: 11, marginTop: 6 }}>
+                {[venue, stadium].filter(Boolean).join(' · ')}
+              </div>
             )}
           </div>
 
@@ -184,7 +186,7 @@ export default function MatchDetail() {
         {/* Match date */}
         {date && (
           <div className="caption" style={{ textAlign: 'center', marginBottom: 16, color: 'var(--text3)' }}>
-            📅 {formatMatchDate(date)}
+            {formatMatchDate(date, lang)}
           </div>
         )}
 
@@ -192,14 +194,12 @@ export default function MatchDetail() {
         <div className="flex gap-8 flex-wrap">
           <button
             className={`btn btn-sm ${isFav('matches', match.id) ? 'btn-gold' : 'btn-outline'}`}
-            onClick={() => toggleFav('matches', match.id, `${team1} vs ${team2}`)}
+            onClick={() => toggleFav('matches', { ...match, name: `${team1} vs ${team2}` })}
           >
-            {isFav('matches', match.id)
-              ? `♥ ${lang === 'es' ? 'Guardado' : 'Saved'}`
-              : `♡ ${lang === 'es' ? 'Guardar' : 'Save'}`}
+            {isFav('matches', match.id) ? t('match','saved') : t('match','save')}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/predict')}>
-            🔮 {lang === 'es' ? 'Predecir con IA' : 'AI Prediction'}
+            {t('match','ai_predict')}
           </button>
         </div>
       </div>
@@ -210,14 +210,12 @@ export default function MatchDetail() {
         {/* Statistics */}
         <div className="card">
           <h3 className="fw-600 mb-12" style={{ fontSize: 15 }}>
-            📊 {lang === 'es' ? 'Estadísticas' : 'Statistics'}
+            {t('match','statistics')}
           </h3>
 
           {status === 'upcoming' ? (
             <div className="caption" style={{ color: 'var(--text3)', padding: '24px 0', textAlign: 'center' }}>
-              {lang === 'es'
-                ? 'Las estadísticas estarán disponibles cuando comience el partido.'
-                : 'Statistics will be available once the match starts.'}
+              {t('match','stats_upcoming')}
             </div>
           ) : (
             <ApiStatus loading={statsLoad} error={statsErr} data={stats}
@@ -233,12 +231,12 @@ export default function MatchDetail() {
                     <span style={{ color: 'var(--blue)' }}>{team2}</span>
                   </div>
 
-                  <StatBar label={lang === 'es' ? 'Posesión'    : 'Possession'}    v1={stats.possession?.home}    v2={stats.possession?.away}    unit="%" />
-                  <StatBar label={lang === 'es' ? 'Tiros'       : 'Shots'}         v1={stats.shots?.home}         v2={stats.shots?.away} />
-                  <StatBar label={lang === 'es' ? 'A puerta'    : 'On Target'}     v1={stats.shotsOnTarget?.home} v2={stats.shotsOnTarget?.away} />
-                  <StatBar label={lang === 'es' ? 'Corners'     : 'Corners'}       v1={stats.corners?.home}       v2={stats.corners?.away} />
-                  <StatBar label={lang === 'es' ? 'Faltas'      : 'Fouls'}         v1={stats.fouls?.home}         v2={stats.fouls?.away} />
-                  <StatBar label={lang === 'es' ? 'T. amarillas': 'Yellow Cards'}  v1={stats.yellowCards?.home}   v2={stats.yellowCards?.away} />
+                  <StatBar label={lang === 'es' ? 'Posesión'     : 'Possession'}   v1={stats.possession?.home}    v2={stats.possession?.away}    unit="%" />
+                  <StatBar label={lang === 'es' ? 'Tiros'        : 'Shots'}        v1={stats.shots?.home}         v2={stats.shots?.away} />
+                  <StatBar label={lang === 'es' ? 'A puerta'     : 'On Target'}    v1={stats.shotsOnTarget?.home} v2={stats.shotsOnTarget?.away} />
+                  <StatBar label={lang === 'es' ? 'Córners'      : 'Corners'}      v1={stats.corners?.home}       v2={stats.corners?.away} />
+                  <StatBar label={lang === 'es' ? 'Faltas'       : 'Fouls'}        v1={stats.fouls?.home}         v2={stats.fouls?.away} />
+                  <StatBar label={lang === 'es' ? 'T. amarillas' : 'Yellow Cards'} v1={stats.yellowCards?.home}   v2={stats.yellowCards?.away} />
                   {(stats.xg?.home || stats.xg?.away) && (
                     <StatBar label="xG" v1={stats.xg?.home} v2={stats.xg?.away} />
                   )}
@@ -251,14 +249,12 @@ export default function MatchDetail() {
         {/* Timeline */}
         <div className="card">
           <h3 className="fw-600 mb-12" style={{ fontSize: 15 }}>
-            📋 {lang === 'es' ? 'Timeline' : 'Timeline'}
+            {t('match','timeline')}
           </h3>
 
           {status === 'upcoming' ? (
             <div className="caption" style={{ color: 'var(--text3)', padding: '24px 0', textAlign: 'center' }}>
-              {lang === 'es'
-                ? 'El timeline aparecerá cuando empiece el partido.'
-                : 'Timeline will appear once the match kicks off.'}
+              {t('match','timeline_upcoming')}
             </div>
           ) : eventsLoad ? (
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '24px 0' }}>
@@ -268,7 +264,7 @@ export default function MatchDetail() {
             </div>
           ) : !(events || []).length ? (
             <div className="caption" style={{ color: 'var(--text3)', padding: '24px 0', textAlign: 'center' }}>
-              {lang === 'es' ? 'Sin eventos registrados.' : 'No events recorded.'}
+              {t('match','no_events')}
             </div>
           ) : (
             <div role="list">
@@ -296,14 +292,21 @@ export default function MatchDetail() {
       {(venue || stadium) && (
         <div className="card">
           <h3 className="fw-600 mb-12" style={{ fontSize: 15 }}>
-            🏟️ {lang === 'es' ? 'Estadio' : 'Venue'}
+            {t('match','venue')}
           </h3>
-          <div className="flex-between">
-            <div>
-              {venue   && <div className="fw-600">{venue}</div>}
-              {stadium && <div className="caption">{stadium}</div>}
+          <div className="flex-between" style={{ alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {venue && (
+                <div className="fw-600">{venue}</div>
+              )}
+              {stadium && (
+                <div className="caption" style={{ color: 'var(--text3)' }}>{stadium}</div>
+              )}
+              {!venue && !stadium && (
+                <div className="caption" style={{ color: 'var(--text3)' }}>—</div>
+              )}
             </div>
-            <span className="badge badge-blue">FIFA WC 2026</span>
+            <span className="badge badge-blue" style={{ flexShrink: 0 }}>FIFA WC 2026</span>
           </div>
         </div>
       )}

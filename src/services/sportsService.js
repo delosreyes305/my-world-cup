@@ -386,8 +386,57 @@ export async function getAllTeamPlayers(teamId) {
     : []
 
   return [first, ...restPages]
-    .flatMap(p => (p.response || []).map(normalizePlayer))
+    .flatMap(p => (p.response || []).map(r => normalizePlayer(r, teamId)))
     .sort(byLastName)
+}
+
+// ─────────────────────────────────────────────────────
+// DETALLE DE JUGADOR — club actual
+// La API de WC solo devuelve estadísticas del torneo, donde el
+// "team" del jugador es su selección nacional, no su club.
+// Esta función llama al endpoint de temporada de club para obtener
+// el club actual del jugador.
+// ─────────────────────────────────────────────────────
+
+/**
+ * Fetches a player's current club from their most recent club season.
+ * Returns { club, clubLogo } or null.
+ * @param {number} playerId – API-Football player ID
+ */
+export async function getPlayerDetails(playerId) {
+  if (isMock) return null
+
+  const currentYear = new Date().getFullYear()
+  // Try the current season year and the previous one as fallback
+  const seasons = [currentYear - 1, currentYear - 2]
+
+  for (const season of seasons) {
+    try {
+      const data = await get(
+        `${BASE}/players?id=${playerId}&season=${season}`,
+        { headers }
+      )
+      const raw = data.response?.[0]
+      if (!raw) continue
+
+      const p = raw.player
+      const stats = raw.statistics || []
+
+      // Pick the entry with the most appearances that is NOT the national team.
+      // National team entries have st.team.name === p.nationality.
+      const clubStat = stats
+        .filter(s => s.team?.name && s.team.name !== p.nationality)
+        .sort((a, b) => (b.games?.appearences || 0) - (a.games?.appearences || 0))[0]
+
+      if (clubStat?.team?.name) {
+        return {
+          club:     clubStat.team.name,
+          clubLogo: clubStat.team.logo || '',
+        }
+      }
+    } catch { /* try next season */ }
+  }
+  return null
 }
 
 // ─────────────────────────────────────────────────────
@@ -411,6 +460,29 @@ export async function getMatchPrediction(fixtureId) {
 }
 
 // ─────────────────────────────────────────────────────
+// WC 2026 — stadium → city fallback
+// Used when the API returns a venue name but an empty city field.
+// ─────────────────────────────────────────────────────
+
+const WC2026_CITY = {
+  'MetLife Stadium':               'East Rutherford, NJ',
+  'AT&T Stadium':                  'Arlington, TX',
+  'SoFi Stadium':                  'Inglewood, CA',
+  "Levi's Stadium":                'Santa Clara, CA',
+  'Lumen Field':                   'Seattle, WA',
+  'Gillette Stadium':              'Foxborough, MA',
+  'Lincoln Financial Field':       'Philadelphia, PA',
+  'Arrowhead Stadium':             'Kansas City, MO',
+  'NRG Stadium':                   'Houston, TX',
+  'Empower Field at Mile High':    'Denver, CO',
+  'BC Place':                      'Vancouver, BC',
+  'BMO Field':                     'Toronto, ON',
+  'Estadio Azteca':                'Mexico City',
+  'Estadio BBVA':                  'Monterrey',
+  'Estadio Akron':                 'Guadalajara',
+}
+
+// ─────────────────────────────────────────────────────
 // NORMALIZADORES
 // ─────────────────────────────────────────────────────
 
@@ -419,6 +491,10 @@ function normalizeFixture(raw) {
   const h = raw.teams?.home
   const a = raw.teams?.away
   const g = raw.goals
+
+  const stadiumName = f.venue?.name || ''
+  const apiCity     = f.venue?.city || ''
+  const city        = apiCity || WC2026_CITY[stadiumName] || ''
 
   return {
     id:      f.id,
@@ -431,8 +507,8 @@ function normalizeFixture(raw) {
     status:  mapStatus(f.status?.short),
     time:    f.status?.elapsed ? `${f.status.elapsed}'` : formatKickoff(f.date),
     group:   raw.league?.round || '',
-    venue:   f.venue?.name || '',
-    stadium: f.venue?.city || '',
+    venue:   stadiumName,  // stadium building name
+    stadium: city,         // city / location  (field kept as 'stadium' for compat)
     date:    f.date,
   }
 }
@@ -491,15 +567,19 @@ function apiPos(position) {
   }
 }
 
-function normalizePlayer(raw) {
+/**
+ * @param {object} raw  – raw API response item { player, statistics }
+ * @param {number|null} teamId – WC-2026 national team ID (set by getAllTeamPlayers)
+ */
+function normalizePlayer(raw, teamId = null) {
   const p  = raw.player
   const st = raw.statistics?.[0] || {}
 
-  // The endpoint /players?team=NationalTeamID returns the national team as st.team.name
-  // which equals the player's nationality. Don't show it as "club" — it's not their club.
-  const teamName   = st.team?.name || ''
+  // When fetching from a national-team endpoint, st.team.name === nationality.
+  // We don't want to show the national team as the "club".
+  const teamName    = st.team?.name || ''
   const nationality = p.nationality || ''
-  const club = teamName && teamName !== nationality ? teamName : ''
+  const club        = teamName && teamName !== nationality ? teamName : ''
 
   return {
     id:        p.id,
@@ -508,17 +588,18 @@ function normalizePlayer(raw) {
     emoji:     '⭐',
     flag:      '',
     pos:       apiPos(st.games?.position),
-    club,
+    club,                   // '' when from national-team endpoint (filled later by getPlayerDetails)
     age:       p.age,
     nation:    nationality,
     goals:     st.goals?.total    || 0,
     assists:   st.goals?.assists  || 0,
     rating:    parseFloat(st.games?.rating || '0').toFixed(1),
-    val:       '—',
+    val:       '—',         // not available from API-Football
     height:    p.height,
     weight:    p.weight,
     caps:      st.games?.appearences || 0,
     intlGoals: st.goals?.total || 0,
+    teamId:    teamId || null, // WC-2026 national team API ID — used for team-detail navigation
   }
 }
 

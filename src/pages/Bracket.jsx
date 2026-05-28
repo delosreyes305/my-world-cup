@@ -189,6 +189,13 @@ export default function Bracket() {
 
   const groupLetters = Object.keys(standings || {}).sort()
 
+  // Translate knockout round labels
+  const ROUND_LABELS = {
+    r32: t('bracket','r32'), r16: t('bracket','r16'),
+    qf:  t('bracket','qf'),  sf:  t('bracket','sf'),
+    '3rd': t('bracket','third'), f: t('bracket','final'),
+  }
+
   const TABS = [
     { key: 'groups',   label: lang === 'es' ? 'Fase de Grupos'    : 'Group Stage'     },
     { key: 'knockout', label: lang === 'es' ? 'Fase Eliminatoria' : 'Knockout Stage'  },
@@ -290,7 +297,7 @@ export default function Bracket() {
             {knockoutRounds.map(round => (
               <div key={round.key} className="bracket-round" style={{ minWidth: 190 }}>
                 <div className="bracket-round-title">
-                  {round.label}
+                  {ROUND_LABELS[round.key] || round.label}
                   <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 9 }}>
                     ({round.matches.length})
                   </span>

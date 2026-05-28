@@ -7,16 +7,23 @@ import { getAllTeamPlayers, getTeams, IS_MOCK } from '../services/sportsService'
 import ApiStatus from '../components/common/ApiStatus'
 
 const POSITIONS  = ['All', 'FW', 'MF', 'DF', 'GK']
-const POS_LABELS = { All: 'All Positions', FW: 'Forwards', MF: 'Midfielders', DF: 'Defenders', GK: 'Goalkeepers' }
-const SORT_OPT   = [
-  { val: 'alpha',   label: 'A–Z'     },
-  { val: 'rating',  label: 'Rating'  },
-  { val: 'goals',   label: 'Goals'   },
-  { val: 'assists', label: 'Assists' },
-]
 
 export default function Players() {
   const { t, lang }          = useLang()
+
+  const POS_LABELS = {
+    All: lang === 'es' ? 'Todas las posiciones' : 'All Positions',
+    FW:  lang === 'es' ? 'Delanteros'  : 'Forwards',
+    MF:  lang === 'es' ? 'Mediocampistas' : 'Midfielders',
+    DF:  lang === 'es' ? 'Defensas'    : 'Defenders',
+    GK:  lang === 'es' ? 'Porteros'    : 'Goalkeepers',
+  }
+  const SORT_OPT = [
+    { val: 'alpha',   label: lang === 'es' ? 'A–Z'        : 'A–Z'      },
+    { val: 'rating',  label: lang === 'es' ? 'Rating'     : 'Rating'   },
+    { val: 'goals',   label: lang === 'es' ? 'Goles'      : 'Goals'    },
+    { val: 'assists', label: lang === 'es' ? 'Asistencias': 'Assists'  },
+  ]
   const { toggleFav, isFav } = useApp()
   const navigate             = useNavigate()
 
@@ -84,7 +91,11 @@ export default function Players() {
       <div className="section-header mb-16">
         <h1 className="section-title"> <span>{t('nav', 'players')}</span></h1>
         <select className="select-dark" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          {SORT_OPT.map(o => <option key={o.val} value={o.val}>Sort: {o.label}</option>)}
+          {SORT_OPT.map(o => (
+            <option key={o.val} value={o.val}>
+              {lang === 'es' ? 'Ordenar: ' : 'Sort: '}{o.label}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -113,15 +124,15 @@ export default function Players() {
 
       {/* ── Filtro por país (todos los 48 equipos) ── */}
       <div style={{ marginBottom: 20 }}>
-        <div className="label mb-8">🌍 {lang === 'es' ? 'Filtrar por país' : 'Filter by country'}</div>
-        <div className="scroll-tabs" role="listbox" aria-label={lang === 'es' ? 'Filtro por país' : 'Filter by country'}>
+        <div className="label mb-8">{t('common','filter_country')}</div>
+        <div className="scroll-tabs" role="listbox" aria-label={t('common','filter_country')}>
 
           {/* Opción "Todos" */}
           <button
             className={`scroll-tab${selectedTeam === null ? ' active' : ''}`}
             onClick={() => handleTeamSelect(null)}
             role="option" aria-selected={selectedTeam === null}>
-            🌍 All Countries
+            {t('common','all_countries')}
           </button>
 
           {/* Un tab por cada equipo clasificado */}
@@ -208,7 +219,7 @@ export default function Players() {
                   <span className="badge badge-blue" style={{ marginRight: 6, fontSize: 9 }}>
                     {player.pos}
                   </span>
-                  {player.club} · {player.nation} · {player.age} {lang === 'es' ? 'años' : 'yrs'}
+                  {player.club} · {player.nation} · {player.age} {t('player','yrs')}
                 </div>
                 <div className="flex gap-16">
                   <div className="pstat">
@@ -226,7 +237,7 @@ export default function Players() {
                   {player.val && player.val !== '—' && (
                     <div className="pstat">
                       <div className="pstat-val" style={{ fontSize: 11 }}>{player.val}</div>
-                      <div className="pstat-lbl">Value</div>
+                      <div className="pstat-lbl">{t('common','value')}</div>
                     </div>
                   )}
                 </div>

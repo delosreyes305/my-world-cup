@@ -5,19 +5,17 @@
 import { get } from './http.js'
 import { NEWS } from '../data/mockData.js'
 
-const BASE = 'https://newsapi.org/v2'
-const CORS_PROXY = 'https://api.allorigins.win/raw?url='
+const BASE = '/api/news'   // proxied: Vite in dev, Vercel rewrite in prod
 const KEY  = import.meta.env.VITE_NEWS_API_KEY || ''
 const isMock = !KEY || KEY === 'TU_CLAVE_AQUI'
 
 const QUERIES = {
-  all:          'FIFA World Cup 2026',
-  breaking:     'World Cup 2026 breaking',
-  match_report: 'World Cup 2026 match result',
-  injury:       'World Cup 2026 injury',
-  transfer:     'World Cup 2026 transfer',
-  trending:     'World Cup 2026',
-  world_cup:    'FIFA 2026',
+  all:          'FIFA "World Cup 2026"',
+  breaking:     'FIFA "World Cup 2026" breaking',
+  match_report: 'FIFA "World Cup 2026" match goal score',
+  injury:       'FIFA "World Cup 2026" injury player',
+  transfer:     'FIFA "World Cup 2026" transfer signing',
+  trending:     'FIFA "World Cup 2026" reaction',
 }
 
 export async function getNews(category = 'all', pageSize = 18) {
@@ -35,20 +33,20 @@ export async function getNews(category = 'all', pageSize = 18) {
   }
 
   const q = QUERIES[category] || QUERIES.all
-  const newsUrl = `${BASE}/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=${pageSize}&apiKey=${KEY}`
-  const url = `${CORS_PROXY}${encodeURIComponent(newsUrl)}`
+  const url = `${BASE}/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=${pageSize}&apiKey=${KEY}`
 
   const data = await get(url)
+  const SOCCER_TERMS = /soccer|football|fifa|world cup|goal|messi|ronaldo|mbappé|neymar|premier|liga|bundesliga|serie a|ligue 1/i
   return (data.articles || [])
     .filter(a => a.title && a.title !== '[Removed]')
+    .filter(a => SOCCER_TERMS.test(a.title) || SOCCER_TERMS.test(a.description || ''))
     .map(normalizeArticle)
 }
 
 export async function getHeadlines(pageSize = 6) {
   if (isMock) return NEWS.slice(0, 6)
 
-  const newsUrl = `${BASE}/top-headlines?q=World+Cup+2026&language=en&pageSize=${pageSize}&apiKey=${KEY}`
-  const url = `${CORS_PROXY}${encodeURIComponent(newsUrl)}`
+  const url = `${BASE}/top-headlines?q=World+Cup+2026&language=en&pageSize=${pageSize}&apiKey=${KEY}`
   const data = await get(url)
   return (data.articles || []).map(normalizeArticle)
 }

@@ -5,12 +5,12 @@ import { getNews } from '../services/newsService'
 import ApiStatus from '../components/common/ApiStatus'
 
 const CATS = [
-  { key: 'all',          label: 'All',          icon: '📰' },
-  { key: 'breaking',     label: 'Breaking',      icon: '⚡' },
-  { key: 'match_report', label: 'Match Report',  icon: '⚽' },
-  { key: 'injury',       label: 'Injury',        icon: '🚑' },
-  { key: 'transfer',     label: 'Transfer',      icon: '💰' },
-  { key: 'trending',     label: 'Trending',      icon: '🔥' },
+  { key: 'all',          label: 'All'          },
+  { key: 'breaking',     label: 'Breaking'     },
+  { key: 'match_report', label: 'Match Report' },
+  { key: 'injury',       label: 'Injury'       },
+  { key: 'transfer',     label: 'Transfer'     },
+  { key: 'trending',     label: 'Trending'     },
 ]
 
 export default function News() {
@@ -29,7 +29,7 @@ export default function News() {
         {CATS.map(c => (
           <button key={c.key} className={`scroll-tab${cat === c.key ? ' active' : ''}`}
             onClick={() => setCat(c.key)} role="tab" aria-selected={cat === c.key}>
-            {c.icon} {c.label}
+            {c.label}
           </button>
         ))}
       </div>
@@ -49,9 +49,7 @@ export default function News() {
                   onError={e => { e.target.style.display='none' }} />
               ) : (
                 <div className="news-article-img"
-                  style={{ background: `linear-gradient(135deg,${article.color}22,${article.color}08)` }}>
-                  {article.emoji}
-                </div>
+                  style={{ background: `linear-gradient(135deg,${article.color}22,${article.color}08)` }} />
               )}
               <div className="news-article-body">
                 <div className="news-cat-tag"
@@ -66,7 +64,7 @@ export default function News() {
                   </p>
                 )}
                 <div className="flex-between mt-8">
-                  <time className="caption">🕐 {article.time}</time>
+                  <time className="caption">{article.time}</time>
                   {article.source && <span className="caption" style={{ opacity:.6 }}>{article.source}</span>}
                 </div>
               </div>

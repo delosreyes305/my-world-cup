@@ -37,13 +37,13 @@ function Hero() {
   )
 }
 
-function GroupTable({ group, groups }) {
+function GroupTable({ group, groups, lang }) {
   const teams = (groups || GROUPS)[group]
   if (!teams) return null
   return (
     <table className="data-table" aria-label={`Group ${group} standings`}>
       <thead><tr>
-        <th style={{ width:28 }}>#</th><th>Team</th>
+        <th style={{ width:28 }}>#</th><th>{lang === 'es' ? 'Equipo' : 'Team'}</th>
         <th>MP</th><th>W</th><th>D</th><th>L</th><th>GD</th>
         <th className="text-gold">Pts</th>
       </tr></thead>
@@ -72,7 +72,7 @@ function GroupTable({ group, groups }) {
 }
 
 export default function Home() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const navigate = useNavigate()
   const [activeGroup, setActiveGroup] = React.useState('A')
 
@@ -124,7 +124,8 @@ export default function Home() {
           </div>
         ) : (
           <div className="card" style={{ textAlign:'center', padding:'32px', color:'var(--text3)' }}>
-            ⏰ No hay partidos en vivo ahora. <button className="see-all" onClick={() => navigate('/matches')}>Ver todos →</button>
+            {t('home','no_live')}{' '}
+            <button className="see-all" onClick={() => navigate('/matches')}>{t('common','see_all')} →</button>
           </div>
         )}
       </section>
@@ -136,15 +137,16 @@ export default function Home() {
             <h2 className="section-title"> <span>{t('home','group_stage')}</span></h2>
           </div>
           <div className="card" style={{ flex: 1 }}>
-            <div className="tabs" role="tablist">
+            <div className="scroll-tabs" role="tablist" style={{ marginBottom: 16 }}>
               {['A','B','C','D','E','F','G','H','I','J','K','L'].map(g => (
-                <button key={g} className={`tab${activeGroup===g?' active':''}`}
-                  onClick={() => setActiveGroup(g)} role="tab" aria-selected={activeGroup===g}>
-                  Grp {g}
+                <button key={g} className={`scroll-tab${activeGroup===g?' active':''}`}
+                  onClick={() => setActiveGroup(g)} role="tab" aria-selected={activeGroup===g}
+                  style={{ padding: '5px 12px', fontSize: 11 }}>
+                  {g}
                 </button>
               ))}
             </div>
-            <GroupTable group={activeGroup} groups={standings} />
+            <GroupTable group={activeGroup} groups={standings} lang={lang} />
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -306,15 +308,15 @@ export default function Home() {
                     <div style={{ fontFamily:'var(--font-display)', fontSize: i === 0 ? 24 : 18, color:'var(--gold)', lineHeight:1 }}>
                       {p.goals ?? 0}
                     </div>
-                    <div className="caption" style={{ fontSize:9 }}>Goals</div>
+                    <div className="caption" style={{ fontSize:9 }}>{t('common','goals_abbr')}</div>
                   </div>
                   <div>
                     <div style={{ fontSize:13, fontWeight:600, color:'var(--text2)' }}>{p.assists ?? 0}</div>
-                    <div className="caption" style={{ fontSize:9 }}>Ast</div>
+                    <div className="caption" style={{ fontSize:9 }}>{t('common','assists_abbr')}</div>
                   </div>
                   <div>
                     <div style={{ fontSize:13, fontWeight:600, color:'var(--electric)' }}>{p.rating}</div>
-                    <div className="caption" style={{ fontSize:9 }}>Rtg</div>
+                    <div className="caption" style={{ fontSize:9 }}>{t('common','rating_abbr')}</div>
                   </div>
                 </div>
               </button>

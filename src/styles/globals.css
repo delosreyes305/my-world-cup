@@ -113,12 +113,11 @@ img { max-width: 100%; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 
 @media (max-width: 1024px) { .grid-4 { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 900px)  { .grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px)  { .grid-3 { grid-template-columns: 1fr 1fr; } .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 768px) {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .page-content { padding: 20px 16px; }
 }
-@media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr 1fr; } }
 
 .flex { display: flex; }
 .flex-col { display: flex; flex-direction: column; }
@@ -375,8 +374,8 @@ img { max-width: 100%; }
   50%       { opacity: 0.3; }
 }
 @keyframes ticker {
-  0%   { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 @keyframes dot {
   0%, 60%, 100% { transform: translateY(0); }

@@ -120,7 +120,7 @@ export default function TeamDetail() {
     <div className="page-content" style={{ textAlign: 'center', padding: '80px 0' }}>
       <h2>{lang === 'es' ? 'Equipo no encontrado' : 'Team not found'}</h2>
       <button className="btn btn-outline mt-16" onClick={() => navigate('/teams')}>
-        ← {lang === 'es' ? 'Volver' : 'Back'}
+        ← {t('common','back')}
       </button>
     </div>
   )
@@ -128,7 +128,7 @@ export default function TeamDetail() {
   return (
     <div className="page-content page-enter">
       <button className="btn btn-ghost btn-sm mb-24" onClick={() => navigate('/teams')}>
-        ← {lang === 'es' ? 'Volver' : 'Back'}
+        ← {t('common','back')}
       </button>
 
       {/* ── Header ── */}
@@ -175,7 +175,7 @@ export default function TeamDetail() {
                 className={`btn btn-sm ${isFav('teams', team.id) ? 'btn-gold' : 'btn-outline'}`}
                 onClick={() => toggleFav('teams', team)}
               >
-                {isFav('teams', team.id) ? '♥ Favorited' : '♡ Add to Favorites'}
+                {isFav('teams', team.id) ? t('common','favorited') : t('common','add_fav')}
               </button>
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('/predict', { state: { preselect: team.id } })}>
                 {lang === 'es' ? 'Predecir partido' : 'Predict Match'}
@@ -304,7 +304,7 @@ export default function TeamDetail() {
                   <span
                     className={`badge ${m.status === 'live' ? 'badge-red' : m.status === 'ft' ? 'badge-gray' : 'badge-electric'}`}
                     style={{ flexShrink: 0 }}>
-                    {m.status === 'live' ? `🔴 ${m.time}` : m.status === 'ft' ? 'FT' : m.time}
+                    {m.status === 'live' ? m.time : m.status === 'ft' ? 'FT' : m.time}
                   </span>
                 </div>
                 {(m.group || m.venue) && (

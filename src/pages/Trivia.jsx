@@ -3,10 +3,18 @@ import { useLang } from '../context/LangContext'
 import { generateTriviaQuestion } from '../services/aiService'
 import { TRIVIA_BANK, FUN_FACTS } from '../data/mockData'
 
+// ── Pick a random question (excluding the last one) ──────
 function pickLocal(exclude) {
   const pool = TRIVIA_BANK.filter(q => q.id !== exclude?.id)
   return pool[Math.floor(Math.random() * pool.length)]
 }
+
+// ── Pick N random items from an array (no repeats) ───────
+function pickRandom(arr, n) {
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
+}
+
+const FACTS_PER_PAGE = 6
 
 export default function Trivia() {
   const { t, lang } = useLang()
@@ -15,6 +23,9 @@ export default function Trivia() {
   const [selected, setSelected ] = useState(null)
   const [score,    setScore    ] = useState({ correct:0, total:0 })
   const [aiLoading,setAiL     ] = useState(false)
+
+  // Random fun facts — picked once per page load, change on next mount
+  const [displayedFacts] = useState(() => pickRandom(FUN_FACTS, FACTS_PER_PAGE))
 
   const next = useCallback(async () => {
     setAiL(true)
@@ -55,7 +66,7 @@ export default function Trivia() {
           <div className="ai-dots" aria-hidden="true" style={{ marginBottom:12, justifyContent:'center', display:'flex', gap:4 }}>
             <span/><span/><span/>
           </div>
-          <p className="text-muted">Generando pregunta con IA...</p>
+          <p className="text-muted">{t('trivia','generating')}</p>
         </div>
       ) : current && (
         <div className="card mb-16" style={{
@@ -95,7 +106,7 @@ export default function Trivia() {
             borderRadius:'var(--radius-sm)', padding:16, marginBottom:16
           }} role="alert" aria-live="polite">
             <div style={{ fontSize:18, marginBottom:6 }}>
-              {selected === current?.correct ? '✅ ¡Correcto!' : '❌ Incorrecto'}
+              {selected === current?.correct ? `✅ ${t('trivia','correct')}` : `❌ ${t('trivia','incorrect')}`}
             </div>
             <div style={{ fontSize:13, color:'var(--text2)', lineHeight:1.7 }}>
               💡 {current?.explain}
@@ -111,27 +122,32 @@ export default function Trivia() {
       {score.total > 0 && (
         <div className="card mb-24">
           <div className="flex-between mb-8">
-            <span className="label" style={{ marginBottom:0 }}>Tu puntuación</span>
+            <span className="label" style={{ marginBottom:0 }}>{t('trivia','score')}</span>
             <span style={{ color:'var(--gold)', fontWeight:600 }}>{score.correct}/{score.total}</span>
           </div>
           <div className="stat-bar-track">
             <div className="stat-bar-fill" style={{ width:`${accuracy}%` }} />
           </div>
           <p className="caption mt-8">
-            {accuracy >= 80 ? '🔥 ¡Eres un genio del fútbol!' : accuracy >= 50 ? '👍 ¡No está mal!' : '📚 ¡Sigue aprendiendo!'}
+            {accuracy >= 80 ? `🔥 ${t('trivia','genius')}` : accuracy >= 50 ? `👍 ${t('trivia','not_bad')}` : `📚 ${t('trivia','keep_learning')}`}
           </p>
         </div>
       )}
 
       <div className="divider" />
 
-      {/* Fun Facts */}
+      {/* Fun Facts — random selection rotates every page load */}
       <section aria-labelledby="facts-heading">
-        <h2 className="section-title mb-16" id="facts-heading">
-           <span>{t('trivia','fun_facts')}</span>
-        </h2>
+        <div className="section-header mb-16">
+          <h2 className="section-title" id="facts-heading">
+            <span>{t('trivia','fun_facts')}</span>
+          </h2>
+          <span className="caption" style={{ color: 'var(--text3)' }}>
+            {displayedFacts.length}/{FUN_FACTS.length}
+          </span>
+        </div>
         <div className="grid-2">
-          {FUN_FACTS.map((f, i) => (
+          {displayedFacts.map((f, i) => (
             <div key={i} className="card-sm flex gap-12" style={{ alignItems:'flex-start' }}>
               <span style={{ fontSize:28, flexShrink:0 }} aria-hidden="true">{f.emoji}</span>
               <p style={{ fontSize:13, lineHeight:1.7, color:'var(--text2)' }}>{f.fact}</p>

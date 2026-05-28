@@ -1,7 +1,10 @@
-import React from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { PLAYERS, TEAMS } from '../data/mockData'
 import { useApp } from '../context/AppContext'
+import { useLang } from '../context/LangContext'
+import { useApi } from '../hooks/useApi'
+import { getTeams, IS_MOCK, getPlayerDetails } from '../services/sportsService'
 
 function StatBar({ label, value, max }) {
   const pct = Math.min(100, (value / max) * 100)
@@ -23,24 +26,78 @@ export default function PlayerDetail() {
   const navigate     = useNavigate()
   const { state }    = useLocation()
   const { toggleFav, isFav } = useApp()
+  const { t }  = useLang()
 
   // API players are passed via navigation state; mock players fall back to PLAYERS array
   const player = state?.player ?? PLAYERS.find(p => p.id === Number(id))
 
+  // ── Load teams list for navigation (1-hour cache) ───────────────
+  // In API mode the team IDs are API-Football IDs (4-digit), not mock IDs.
+  // We need the API teams to navigate to the correct TeamDetail page.
+  const { data: teamsData } = useApi(getTeams, { ttl: 3_600_000 })
+
+  // ── Fetch current club from club season when not available ───────
+  // The WC endpoint returns national-team stats, so club = '' for API players.
+  // getPlayerDetails calls /players?id=X&season=Y to get club stats.
+  const [clubInfo, setClubInfo] = useState(null)
+  useEffect(() => {
+    setClubInfo(null)
+    if (!player || player.club || IS_MOCK) return
+    let cancelled = false
+    getPlayerDetails(player.id)
+      .then(info => { if (!cancelled && info?.club) setClubInfo(info) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [player?.id, player?.club])
+
+  // ── Resolve the correct team for navigation ──────────────────────
+  // Priority:
+  //   1. player.teamId (set by getAllTeamPlayers — the reliable API team ID)
+  //   2. Look up by nation name in the API teams list
+  //   3. Fall back to mock TEAMS (for pure-mock mode)
+  const navTeam = useMemo(() => {
+    if (!player) return null
+    const allTeams = teamsData || TEAMS
+
+    if (player.teamId) {
+      // player came from Players page in API mode — teamId is the API team ID
+      return allTeams.find(t => t.id === player.teamId) ?? { id: player.teamId, name: player.nation }
+    }
+
+    // No teamId: find by nation name (handles both API and mock)
+    if (player.nation) {
+      const byExact = allTeams.find(t => t.name === player.nation)
+      if (byExact) return byExact
+      // Case-insensitive fallback
+      const byCI = allTeams.find(t => t.name.toLowerCase() === player.nation.toLowerCase())
+      if (byCI) return byCI
+    }
+
+    return null
+  }, [player?.teamId, player?.nation, teamsData])
+
+  // ── 404 ──────────────────────────────────────────────────────────
   if (!player) return (
     <div className="page-content" style={{ textAlign: 'center', padding: '80px 0' }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-      <h2>Player not found</h2>
-      <button className="btn btn-outline mt-16" onClick={() => navigate('/players')}>← Back</button>
+      <h2>{t('player','not_found')}</h2>
+      <button className="btn btn-outline mt-16" onClick={() => navigate('/players')}>
+        ← {t('common','back')}
+      </button>
     </div>
   )
 
   const posColor = { FW: 'var(--red)', MF: 'var(--blue)', DF: 'var(--green)', GK: 'var(--gold)' }
-  const team = TEAMS.find(t => t.name === player.nation)
+
+  // The display club: prefer player.club (mock / set from normalizer),
+  // then fall back to the club fetched from the club-season endpoint.
+  const displayClub = player.club || clubInfo?.club || ''
 
   return (
     <div className="page-content page-enter">
-      <button className="btn btn-ghost btn-sm mb-24" onClick={() => navigate('/players')}>← Back</button>
+      <button className="btn btn-ghost btn-sm mb-24" onClick={() => navigate('/players')}>
+        ← {t('common','back')}
+      </button>
 
       {/* Header */}
       <div className="card mb-16">
@@ -51,34 +108,48 @@ export default function PlayerDetail() {
                 border: '2px solid rgba(240,180,41,0.2)', flexShrink: 0 }}
               onError={e => { e.target.style.display = 'none' }} />
           ) : (
-            <div style={{ fontSize: 80, width: 100, height: 100, borderRadius: '50%', background: 'rgba(240,180,41,0.08)', border: '2px solid rgba(240,180,41,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} aria-hidden="true">
-              {player.emoji || '⭐'}
+            <div style={{ fontSize: 80, width: 100, height: 100, borderRadius: '50%',
+              background: 'rgba(240,180,41,0.08)', border: '2px solid rgba(240,180,41,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+              aria-hidden="true">
+              {player.emoji || '★'}
             </div>
           )}
           <div style={{ flex: 1 }}>
             <div className="flex-center gap-12 mb-8" style={{ flexWrap: 'wrap' }}>
               <h1 className="fw-600" style={{ fontSize: 26 }}>{player.name}</h1>
               <span style={{ fontSize: 24 }} aria-label={player.nation}>{player.flag}</span>
-              <span className="badge" style={{ background: `${posColor[player.pos]}22`, color: posColor[player.pos], border: `1px solid ${posColor[player.pos]}44` }}>
+              <span className="badge" style={{
+                background: `${posColor[player.pos]}22`,
+                color: posColor[player.pos],
+                border: `1px solid ${posColor[player.pos]}44`,
+              }}>
                 {player.pos}
               </span>
             </div>
+
+            {/* Sub-line: club · nation · age — club shows loading state while fetching */}
             <div className="caption" style={{ marginBottom: 12 }}>
-              {[player.club, player.nation, `Age ${player.age}`].filter(Boolean).join(' · ')}
+              {[
+                displayClub || (!player.club && !IS_MOCK && !clubInfo ? '…' : ''),
+                player.nation,
+                `${player.age} ${t('player','yrs')}`,
+              ].filter(Boolean).join(' · ')}
             </div>
+
             <div className="flex gap-8 flex-wrap">
               <button
                 className={`btn btn-sm ${isFav('players', player.id) ? 'btn-gold' : 'btn-outline'}`}
                 onClick={() => toggleFav('players', player)}
               >
-                {isFav('players', player.id) ? '♥ Favorited' : '♡ Add to Favorites'}
+                {isFav('players', player.id) ? t('common','favorited') : t('common','add_fav')}
               </button>
-              {team && (
+              {navTeam && (
                 <button
                   className="btn btn-ghost btn-sm"
-                  onClick={() => navigate(`/teams/${team.id}`)}
+                  onClick={() => navigate(`/teams/${navTeam.id}`, { state: { team: navTeam } })}
                 >
-                  View {team.name}
+                  {t('player','view_team')} {navTeam.name || player.nation}
                 </button>
               )}
             </div>
@@ -89,10 +160,10 @@ export default function PlayerDetail() {
       {/* Tournament stats */}
       <div className="grid-4 mb-16">
         {[
-          { label: 'Goals',     val: player.goals },
-          { label: 'Assists',   val: player.assists },
-          { label: 'Rating',    val: player.rating },
-          { label: 'Market Val',val: player.val },
+          { label: t('common','goals'),   val: player.goals   },
+          { label: t('common','assists'),  val: player.assists  },
+          { label: t('common','rating'),   val: player.rating   },
+          { label: t('common','value'),    val: player.val      },
         ].map(s => (
           <div key={s.label} className="card-sm" style={{ textAlign: 'center' }}>
             <div className="label">{s.label}</div>
@@ -104,16 +175,16 @@ export default function PlayerDetail() {
       <div className="grid-2 mb-16">
         {/* Personal info */}
         <div className="card">
-          <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>ℹ️ Player Info</h2>
+          <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>{t('player','info')}</h2>
           {[
-            { label: 'Nationality', val: `${player.nation} ${player.flag}` },
-            { label: 'Club',        val: player.club || '—' },
-            { label: 'Position',    val: player.pos },
-            { label: 'Age',         val: player.age },
-            { label: 'Height',      val: player.height },
-            { label: 'Weight',      val: player.weight },
-            { label: 'Int\'l Caps', val: player.caps },
-            { label: 'Int\'l Goals',val: player.intlGoals },
+            { label: t('player','nationality'), val: `${player.nation} ${player.flag}` },
+            { label: t('player','club'),        val: displayClub || '—'               },
+            { label: t('player','position'),    val: player.pos                        },
+            { label: t('player','age'),         val: player.age                        },
+            { label: t('player','height'),      val: player.height || '—'             },
+            { label: t('player','weight'),      val: player.weight || '—'             },
+            { label: t('player','caps'),        val: player.caps                       },
+            { label: t('player','intl_goals'),  val: player.intlGoals                  },
           ].map(({ label, val }) => (
             <div key={label} className="flex-between" style={{ marginBottom: 10 }}>
               <span className="label" style={{ marginBottom: 0 }}>{label}</span>
@@ -124,15 +195,21 @@ export default function PlayerDetail() {
 
         {/* Performance bars */}
         <div className="card">
-          <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>📈 Performance</h2>
-          <StatBar label="Scoring" value={player.goals} max={10} />
-          <StatBar label="Creativity" value={player.assists} max={8} />
-          <StatBar label="Overall Rating" value={player.rating} max={10} />
-          <StatBar label="Int'l Goals"  value={player.intlGoals} max={120} />
+          <h2 className="fw-600 mb-16" style={{ fontSize: 15 }}>{t('player','performance')}</h2>
+          <StatBar label={t('player','scoring')}       value={player.goals}     max={10}  />
+          <StatBar label={t('player','creativity')}    value={player.assists}   max={8}   />
+          <StatBar label={t('player','overall_rating')} value={player.rating}   max={10}  />
+          <StatBar label={t('player','intl_goals')}    value={player.intlGoals} max={120} />
 
           <div className="divider" />
-          <div className="label mb-8">Market Value</div>
-          <div className="val text-gold">{player.val}</div>
+          <div className="label mb-8">{t('player','market_value')}</div>
+          <div className="val text-gold">
+            {player.val && player.val !== '—' ? player.val : (
+              <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>
+                {IS_MOCK ? '—' : 'N/A (not provided by API)'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -99,13 +99,18 @@ export async function getMatchEvents(fixtureId) {
     `${BASE}/fixtures/events?fixture=${fixtureId}`,
     { headers }
   )
-  return (data.response || []).map(e => ({
-    time:   `${e.time?.elapsed}'`,
-    type:   e.type,
-    detail: e.detail,
-    team:   e.team?.name,
-    player: e.player?.name,
-  }))
+  return (data.response || []).map(e => {
+    const elapsed = e.time?.elapsed ?? ''
+    const extra   = e.time?.extra
+    const timeStr = extra ? `${elapsed}+${extra}'` : `${elapsed}'`
+    return {
+      time:   timeStr,
+      type:   e.type,
+      detail: e.detail,
+      team:   e.team?.name,
+      player: e.player?.name,
+    }
+  })
 }
 
 // ─────────────────────────────────────────────────────
@@ -218,6 +223,66 @@ const CONFEDERATION_MAP = {
   'New Zealand': 'OFC',
 }
 
+// ─── National team home stadiums (ground-truth fallback) ────────────────
+// The API often returns empty or inconsistent venue data for national teams.
+// These are the official home grounds used in WC 2026 qualification.
+const NATIONAL_STADIUMS = {
+  // UEFA
+  Argentina:              { name: 'Estadio Monumental',          city: 'Buenos Aires',   capacity: 84567 },
+  Spain:                  { name: 'Estadio de La Cartuja',       city: 'Seville',        capacity: 57619 },
+  France:                 { name: 'Stade de France',             city: 'Saint-Denis',    capacity: 80698 },
+  England:                { name: 'Wembley Stadium',             city: 'London',         capacity: 90000 },
+  Portugal:               { name: 'Estádio da Luz',              city: 'Lisbon',         capacity: 64642 },
+  Netherlands:            { name: 'Johan Cruyff Arena',          city: 'Amsterdam',      capacity: 54990 },
+  Belgium:                { name: 'Stade Roi Baudouin',          city: 'Brussels',       capacity: 50093 },
+  Germany:                { name: 'Allianz Arena',               city: 'Munich',         capacity: 75024 },
+  Croatia:                { name: 'Stadion Maksimir',            city: 'Zagreb',         capacity: 35123 },
+  Switzerland:            { name: 'Wankdorf Stadium',            city: 'Berne',          capacity: 31783 },
+  Sweden:                 { name: 'Friends Arena',               city: 'Stockholm',      capacity: 50000 },
+  Austria:                { name: 'Ernst Happel Stadion',        city: 'Vienna',         capacity: 48500 },
+  'Czech Republic':       { name: 'Sinobo Stadium',              city: 'Prague',         capacity: 20814 },
+  Scotland:               { name: 'Hampden Park',                city: 'Glasgow',        capacity: 52063 },
+  Norway:                 { name: 'Ullevaal Stadion',            city: 'Oslo',           capacity: 27182 },
+  'Türkiye':              { name: 'Atatürk Olympic Stadium',     city: 'Istanbul',       capacity: 76092 },
+  'Bosnia & Herzegovina': { name: 'Bilino Polje',                city: 'Zenica',         capacity: 15700 },
+  // CONMEBOL
+  Brazil:                 { name: 'Estádio do Maracanã',         city: 'Rio de Janeiro', capacity: 78838 },
+  Colombia:               { name: 'Estadio Metropolitano',       city: 'Barranquilla',   capacity: 48000 },
+  Uruguay:                { name: 'Estadio Centenario',          city: 'Montevideo',     capacity: 60235 },
+  Ecuador:                { name: 'Estadio Rodrigo Paz Delgado', city: 'Quito',          capacity: 41575 },
+  Paraguay:               { name: 'Estadio Defensores del Chaco',city: 'Asunción',       capacity: 42354 },
+  // CONCACAF
+  USA:                    { name: 'Rose Bowl',                   city: 'Pasadena, CA',   capacity: 90888 },
+  Mexico:                 { name: 'Estadio Azteca',              city: 'Mexico City',    capacity: 87523 },
+  Canada:                 { name: 'BMO Field',                   city: 'Toronto, ON',    capacity: 30000 },
+  Panama:                 { name: 'Estadio Rommel Fernández',    city: 'Panama City',    capacity: 32000 },
+  'Curaçao':              { name: 'Ergilio Hato Stadion',        city: 'Willemstad',     capacity: 10000 },
+  Haiti:                  { name: 'Stade Sylvio Cator',          city: 'Port-au-Prince', capacity: 10000 },
+  // CAF
+  Morocco:                { name: 'Stade Mohammed V',            city: 'Casablanca',     capacity: 67000 },
+  Senegal:                { name: 'Stade Abdoulaye Wade',        city: 'Dakar',          capacity: 50000 },
+  Algeria:                { name: 'Stade Mustapha Tchaker',      city: 'Blida',          capacity: 50000 },
+  Tunisia:                { name: 'Stade de Radès',              city: 'Tunis',          capacity: 60000 },
+  Egypt:                  { name: 'Cairo International Stadium', city: 'Cairo',          capacity: 75000 },
+  'Ivory Coast':          { name: 'Stade Félix Houphouët-Boigny',city: 'Abidjan',        capacity: 45000 },
+  'Congo DR':             { name: 'Stade des Martyrs',           city: 'Kinshasa',       capacity: 80000 },
+  Ghana:                  { name: 'Baba Yara Stadium',           city: 'Kumasi',         capacity: 40000 },
+  'South Africa':         { name: 'FNB Stadium',                 city: 'Johannesburg',   capacity: 94736 },
+  'Cape Verde Islands':   { name: 'Estádio Nacional de Cabo Verde',city: 'Praia',        capacity: 15000 },
+  // AFC
+  Japan:                  { name: 'Japan National Stadium',      city: 'Tokyo',          capacity: 68000 },
+  'South Korea':          { name: 'Seoul World Cup Stadium',     city: 'Seoul',          capacity: 66806 },
+  Iran:                   { name: 'Azadi Stadium',               city: 'Tehran',         capacity: 78116 },
+  Australia:              { name: 'Stadium Australia',           city: 'Sydney',         capacity: 83500 },
+  Jordan:                 { name: 'King Abdullah II Stadium',    city: 'Amman',          capacity: 25000 },
+  Uzbekistan:             { name: 'Pakhtakor Stadium',           city: 'Tashkent',       capacity: 34000 },
+  Iraq:                   { name: 'Franso Hariri Stadium',       city: 'Erbil',          capacity: 65000 },
+  Qatar:                  { name: 'Lusail Stadium',              city: 'Lusail',         capacity: 89000 },
+  'Saudi Arabia':         { name: 'King Fahd International Stadium',city: 'Riyadh',      capacity: 67000 },
+  // OFC
+  'New Zealand':          { name: 'Eden Park',                   city: 'Auckland',       capacity: 48276 },
+}
+
 export async function getTeams() {
   if (isMock) return TEAMS
 
@@ -229,6 +294,25 @@ export async function getTeams() {
     const name          = r.team.name
     const confederation = CONFEDERATION_MAP[name] || 'Other'
     const meta          = TEAM_METADATA[name] || { rank: null, titles: 0 }
+
+    // Static map is ground-truth for all 48 WC teams — always prefer it.
+    // The API sometimes returns wrong venues (e.g. Oakland Coliseum for Mexico).
+    // For teams not in the map, fall back to whatever the API provides.
+    const staticVenue = NATIONAL_STADIUMS[name]
+    const venue = staticVenue
+      ? {
+          name:     staticVenue.name,
+          city:     staticVenue.city,
+          capacity: staticVenue.capacity,
+          image:    r.venue?.image || '',   // keep API image if any
+        }
+      : {
+          name:     r.venue?.name     || '',
+          city:     r.venue?.city     || '',
+          capacity: r.venue?.capacity || null,
+          image:    r.venue?.image    || '',
+        }
+
     return {
       id:            r.team.id,
       name,
@@ -245,12 +329,7 @@ export async function getTeams() {
       mp: 0, w: 0, d: 0, l: 0,
       form:          [],
       squad:         [],
-      venue: {
-        name:     r.venue?.name     || '',
-        city:     r.venue?.city     || '',
-        capacity: r.venue?.capacity || null,
-        image:    r.venue?.image    || '',
-      },
+      venue,
     }
   })
 }
@@ -370,24 +449,79 @@ export async function getAllTeamPlayers(teamId) {
 
   if (teamId === null || teamId === undefined) return []
 
-  // Fetch page 1 to know total pages, then fetch the rest concurrently
-  const first = await get(
-    `${BASE}/players?team=${teamId}&season=${WC_SEASON}&page=1`,
-    { headers },
-  )
-  const total = first.paging?.total ?? 1
+  // Try WC 2026 season first, then fall back to recent seasons.
+  // Pre-tournament: squads aren't registered for season=2026 yet, so
+  // the previous season (Nations League / Qualifiers) has the data.
+  const seasonsToTry = [WC_SEASON, WC_SEASON - 1, WC_SEASON - 2]
 
-  const restPages = total > 1
-    ? await Promise.all(
-        Array.from({ length: total - 1 }, (_, i) =>
-          get(`${BASE}/players?team=${teamId}&season=${WC_SEASON}&page=${i + 2}`, { headers })
-        )
+  for (const season of seasonsToTry) {
+    try {
+      // Fetch page 1 to get total page count
+      const first = await get(
+        `${BASE}/players?team=${teamId}&season=${season}&page=1`,
+        { headers },
       )
-    : []
+      const total = first.paging?.total ?? 1
+      const firstPlayers = first.response || []
 
-  return [first, ...restPages]
-    .flatMap(p => (p.response || []).map(r => normalizePlayer(r, teamId)))
-    .sort(byLastName)
+      if (firstPlayers.length === 0 && season < seasonsToTry[seasonsToTry.length - 1] + 1) {
+        continue // empty — try older season
+      }
+
+      const restPages = total > 1
+        ? await Promise.all(
+            Array.from({ length: total - 1 }, (_, i) =>
+              get(`${BASE}/players?team=${teamId}&season=${season}&page=${i + 2}`, { headers })
+            )
+          )
+        : []
+
+      const players = [first, ...restPages]
+        .flatMap(p => (p.response || []).map(r => normalizePlayer(r, teamId)))
+        .sort(byLastName)
+
+      if (players.length > 0) return players
+    } catch { /* try next season */ }
+  }
+
+  return []
+}
+
+/**
+ * Global player search by name — used when no team is selected.
+ * Searches within the WC 2026 context first, then recent seasons as fallback.
+ * @param {string} query – at least 3 characters
+ */
+export async function searchPlayers(query) {
+  if (isMock) {
+    if (!query || query.length < 2) return []
+    const q = query.toLowerCase()
+    return PLAYERS.filter(p => p.name?.toLowerCase().includes(q))
+  }
+
+  const q = (query || '').trim()
+  if (q.length < 3) return []
+
+  // Try in order until we get results:
+  //  1. WC 2026 (live data once tournament starts)
+  //  2. WC 2022 (last completed World Cup — full player data)
+  //  3. Recent club seasons (finds any WC-bound player by name)
+  const attempts = [
+    `${BASE}/players?search=${encodeURIComponent(q)}&league=${WC_LEAGUE}&season=${WC_SEASON}`,
+    `${BASE}/players?search=${encodeURIComponent(q)}&league=${WC_LEAGUE}&season=2022`,
+    `${BASE}/players?search=${encodeURIComponent(q)}&season=2024`,
+    `${BASE}/players?search=${encodeURIComponent(q)}&season=2023`,
+  ]
+
+  for (const url of attempts) {
+    try {
+      const data = await get(url, { headers })
+      const players = (data.response || []).map(r => normalizePlayer(r, null)).sort(byLastName)
+      if (players.length > 0) return players
+    } catch { /* try next */ }
+  }
+
+  return []
 }
 
 // ─────────────────────────────────────────────────────
@@ -496,19 +630,28 @@ function normalizeFixture(raw) {
   const apiCity     = f.venue?.city || ''
   const city        = apiCity || WC2026_CITY[stadiumName] || ''
 
+  // Elapsed time — include extra time ("45+2'") when present
+  const elapsed = f.status?.elapsed
+  const extra   = f.status?.extra
+  const timeStr = elapsed != null
+    ? `${elapsed}${extra ? '+' + extra : ''}'`
+    : formatKickoff(f.date)
+
   return {
     id:      f.id,
     team1:   h?.name,
-    flag1:   h?.logo,   // URL — en componentes, usa <img src={flag1} />
+    flag1:   h?.logo,      // URL — en componentes, usa <img src={flag1} />
+    team1Id: h?.id ?? null, // API-Football team ID for navigation
     team2:   a?.name,
     flag2:   a?.logo,
+    team2Id: a?.id ?? null,
     score1:  g?.home ?? null,
     score2:  g?.away ?? null,
     status:  mapStatus(f.status?.short),
-    time:    f.status?.elapsed ? `${f.status.elapsed}'` : formatKickoff(f.date),
+    time:    timeStr,
     group:   raw.league?.round || '',
-    venue:   stadiumName,  // stadium building name
-    stadium: city,         // city / location  (field kept as 'stadium' for compat)
+    venue:   stadiumName,   // stadium building name
+    stadium: city,          // city / location  (field kept as 'stadium' for compat)
     date:    f.date,
   }
 }
@@ -519,20 +662,26 @@ function formatKickoff(iso) {
 }
 
 function normalizeStats(response) {
-  const find = (arr, label) =>
-    arr?.statistics?.find(s => s.type === label)?.value ?? 0
+  // The API returns possession as a string like "50%" — parse to number.
+  // All other values are numbers or null.
+  const findNum = (arr, label) => {
+    const val = arr?.statistics?.find(s => s.type === label)?.value
+    if (val === null || val === undefined) return 0
+    if (typeof val === 'string') return parseFloat(val) || 0
+    return Number(val) || 0
+  }
 
   const h = response[0]
   const a = response[1]
 
   return {
-    possession:    { home: find(h, 'Ball Possession'), away: find(a, 'Ball Possession') },
-    shots:         { home: find(h, 'Total Shots'),     away: find(a, 'Total Shots') },
-    shotsOnTarget: { home: find(h, 'Shots on Goal'),   away: find(a, 'Shots on Goal') },
-    corners:       { home: find(h, 'Corner Kicks'),    away: find(a, 'Corner Kicks') },
-    fouls:         { home: find(h, 'Fouls'),           away: find(a, 'Fouls') },
-    yellowCards:   { home: find(h, 'Yellow Cards'),    away: find(a, 'Yellow Cards') },
-    xg:            { home: find(h, 'expected_goals'),  away: find(a, 'expected_goals') },
+    possession:    { home: findNum(h, 'Ball Possession'), away: findNum(a, 'Ball Possession') },
+    shots:         { home: findNum(h, 'Total Shots'),     away: findNum(a, 'Total Shots') },
+    shotsOnTarget: { home: findNum(h, 'Shots on Goal'),   away: findNum(a, 'Shots on Goal') },
+    corners:       { home: findNum(h, 'Corner Kicks'),    away: findNum(a, 'Corner Kicks') },
+    fouls:         { home: findNum(h, 'Fouls'),           away: findNum(a, 'Fouls') },
+    yellowCards:   { home: findNum(h, 'Yellow Cards'),    away: findNum(a, 'Yellow Cards') },
+    xg:            { home: findNum(h, 'expected_goals'),  away: findNum(a, 'expected_goals') },
   }
 }
 

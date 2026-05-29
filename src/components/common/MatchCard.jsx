@@ -38,10 +38,17 @@ export default function MatchCard({ match }) {
   return (
     <article
       className="match-card card card-clickable"
-      onClick={() => navigate(`/matches/${id}`, { state: { match } })}
+      onClick={() => status === 'live'
+        ? navigate(`/live/${id}`, { state: { match } })
+        : navigate(`/matches/${id}`, { state: { match } })}
       role="button"
       tabIndex={0}
-      onKeyDown={e => e.key === 'Enter' && navigate(`/matches/${id}`, { state: { match } })}
+      onKeyDown={e => {
+        if (e.key !== 'Enter') return
+        status === 'live'
+          ? navigate(`/live/${id}`, { state: { match } })
+          : navigate(`/matches/${id}`, { state: { match } })
+      }}
       aria-label={`${team1} vs ${team2}${group ? `, ${group}` : ''}`}
     >
       <div className="match-card-meta">

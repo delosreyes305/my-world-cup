@@ -88,7 +88,7 @@ export default function LiveTicker() {
             `${m.team1} ${m.score1 ?? 0}–${m.score2 ?? 0} ${m.team2}  ${m.time ?? ''}`
           )
       return {
-        text:   items.join('          '),
+        text:   items.join('  |  '),
         isLive: true,
         label:  lang === 'es' ? 'EN VIVO' : 'LIVE',
       }
@@ -108,7 +108,12 @@ export default function LiveTicker() {
     if (!upcoming.length) return { text: '', isLive: false, label: '' }
 
     const items = upcoming.map(m => {
-      const parts = [`${m.team1} vs ${m.team2}`]
+      // Flags: only use emoji (not URLs) in the text ticker
+      const ef1 = m.flag1 && typeof m.flag1 === 'string' && !m.flag1.startsWith('http') ? m.flag1 : ''
+      const ef2 = m.flag2 && typeof m.flag2 === 'string' && !m.flag2.startsWith('http') ? m.flag2 : ''
+      const t1  = [ef1, m.team1].filter(Boolean).join(' ')
+      const t2  = [ef2, m.team2].filter(Boolean).join(' ')
+      const parts = [`${t1} vs ${t2}`]
       if (m.date) {
         const dateStr = new Date(m.date).toLocaleDateString(
           lang === 'es' ? 'es-MX' : 'en-US',
@@ -123,7 +128,7 @@ export default function LiveTicker() {
     })
 
     return {
-      text:   items.join('          '),
+      text:   items.join('  |  '),
       isLive: false,
       label:  lang === 'es' ? 'PRÓXIMOS' : 'UPCOMING',
     }

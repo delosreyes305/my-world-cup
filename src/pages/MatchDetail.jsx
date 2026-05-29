@@ -1,10 +1,10 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useApp } from '../context/AppContext'
 import { useApi } from '../hooks/useApi'
-import { getMatchStats, getMatchEvents } from '../services/sportsService'
-import { MATCHES } from '../data/mockData'
+import { getMatchStats, getMatchEvents, getTeams } from '../services/sportsService'
+import { MATCHES, TEAMS } from '../data/mockData'
 import ApiStatus from '../components/common/ApiStatus'
 
 // ─── Dual-color stat bar (gold = home · blue = away) ───
@@ -86,6 +86,26 @@ export default function MatchDetail() {
   // Fast path: match passed via navigation state; fallback to mock data
   const match = state?.match ?? MATCHES.find(m => m.id === Number(id))
 
+  // ── Load teams list for navigation (same 1 h cache) ──────────────────
+  const { data: teamsData } = useApi(getTeams, { ttl: 3_600_000 })
+
+  // ── Resolve navigable team objects from match ─────────────────────────
+  // Priority: team1Id/team2Id on the match (API mode) → name lookup in teams list → null
+  const navTeams = useMemo(() => {
+    if (!match) return { t1: null, t2: null }
+    const all = teamsData || TEAMS
+    const findTeam = (name, teamId) => {
+      if (teamId) return all.find(t => t.id === teamId) ?? { id: teamId, name, flag: match.flag1 }
+      return all.find(t => t.name === name)
+        || all.find(t => t.name.toLowerCase() === name?.toLowerCase())
+        || null
+    }
+    return {
+      t1: findTeam(match.team1, match.team1Id),
+      t2: findTeam(match.team2, match.team2Id),
+    }
+  }, [match, teamsData])
+
   // Stats & events – only for started/finished matches
   const skip = !match || match.status === 'upcoming'
 
@@ -106,6 +126,12 @@ export default function MatchDetail() {
   )
 
   const { team1, flag1, team2, flag2, score1, score2, status, time, group, venue, stadium, date } = match
+  const { t1: navTeam1, t2: navTeam2 } = navTeams
+
+  const goToTeam = (navTeam, name, flag) => {
+    if (!navTeam) return
+    navigate(`/teams/${navTeam.id}`, { state: { team: { ...navTeam, name, flag } } })
+  }
 
   // ── Render ────────────────────────────────────────────
   return (
@@ -143,10 +169,25 @@ export default function MatchDetail() {
           justifyContent: 'space-between', gap: 20,
           textAlign: 'center', marginBottom: 20,
         }}>
-          {/* Home team */}
-          <div style={{ flex: 1 }}>
+          {/* Home team — clickable → TeamDetail */}
+          <div
+            style={{
+              flex: 1, cursor: navTeam1 ? 'pointer' : 'default',
+              transition: 'opacity 0.15s',
+            }}
+            onClick={() => goToTeam(navTeam1, team1, flag1)}
+            role={navTeam1 ? 'button' : undefined}
+            tabIndex={navTeam1 ? 0 : undefined}
+            onKeyDown={e => e.key === 'Enter' && goToTeam(navTeam1, team1, flag1)}
+            aria-label={navTeam1 ? `View ${team1} team page` : undefined}
+            onMouseEnter={e => { if (navTeam1) e.currentTarget.style.opacity = '0.75' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+          >
             <TeamFlag flag={flag1} name={team1} size={64} />
-            <h2 className="fw-600" style={{ fontSize: 18, lineHeight: 1.3 }}>{team1}</h2>
+            <h2 className="fw-600" style={{ fontSize: 18, lineHeight: 1.3 }}>
+              {team1}
+              {navTeam1 && <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 4, verticalAlign: 'middle' }}>↗</span>}
+            </h2>
           </div>
 
           {/* Score / VS */}
@@ -176,10 +217,25 @@ export default function MatchDetail() {
             )}
           </div>
 
-          {/* Away team */}
-          <div style={{ flex: 1 }}>
+          {/* Away team — clickable → TeamDetail */}
+          <div
+            style={{
+              flex: 1, cursor: navTeam2 ? 'pointer' : 'default',
+              transition: 'opacity 0.15s',
+            }}
+            onClick={() => goToTeam(navTeam2, team2, flag2)}
+            role={navTeam2 ? 'button' : undefined}
+            tabIndex={navTeam2 ? 0 : undefined}
+            onKeyDown={e => e.key === 'Enter' && goToTeam(navTeam2, team2, flag2)}
+            aria-label={navTeam2 ? `View ${team2} team page` : undefined}
+            onMouseEnter={e => { if (navTeam2) e.currentTarget.style.opacity = '0.75' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+          >
             <TeamFlag flag={flag2} name={team2} size={64} />
-            <h2 className="fw-600" style={{ fontSize: 18, lineHeight: 1.3 }}>{team2}</h2>
+            <h2 className="fw-600" style={{ fontSize: 18, lineHeight: 1.3 }}>
+              {team2}
+              {navTeam2 && <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 4, verticalAlign: 'middle' }}>↗</span>}
+            </h2>
           </div>
         </div>
 
@@ -198,7 +254,15 @@ export default function MatchDetail() {
           >
             {isFav('matches', match.id) ? t('match','saved') : t('match','save')}
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/predict')}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => navigate('/predict', {
+              state: {
+                preselect1: navTeam1?.id ?? null,
+                preselect2: navTeam2?.id ?? null,
+              }
+            })}
+          >
             {t('match','ai_predict')}
           </button>
         </div>

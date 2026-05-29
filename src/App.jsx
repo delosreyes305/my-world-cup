@@ -15,6 +15,7 @@ import News from './pages/News'
 import Trivia from './pages/Trivia'
 import AiPredict from './pages/AiPredict'
 import Favorites from './pages/Favorites'
+import LiveMatch from './pages/LiveMatch'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="matches" element={<Matches />} />
               <Route path="matches/:id" element={<MatchDetail />} />
+              <Route path="live/:id" element={<LiveMatch />} />
               <Route path="teams" element={<Teams />} />
               <Route path="teams/:id" element={<TeamDetail />} />
               <Route path="players" element={<Players />} />

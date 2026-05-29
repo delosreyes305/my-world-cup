@@ -71,7 +71,7 @@ export default function Teams() {
 
       {/* ── Search ── */}
       <div style={{ position: 'relative', marginBottom: 14 }}>
-        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--text3)', pointerEvents: 'none' }}>🔍</span>
+        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--text3)', pointerEvents: 'none' }} />
         <input
           className="input" style={{ paddingLeft: 36 }}
           placeholder={lang === 'es' ? 'Buscar equipo...' : 'Search team...'}

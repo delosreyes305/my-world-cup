@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useApi } from '../hooks/useApi'
@@ -69,11 +69,22 @@ export default function AiPredict() {
     teamsRaw ? [...teamsRaw].sort((a, b) => a.name.localeCompare(b.name)) : []
   , [teamsRaw])
 
-  const [t1Id,    setT1]    = useState(() => state?.preselect ? String(state.preselect) : '')
-  const [t2Id,    setT2]    = useState('')
+  // Read both preselected teams from navigation state.
+  // Supports: { preselect1, preselect2 } (from MatchDetail)
+  //       and legacy: { preselect } (single team, for backward compat)
+  const [t1Id,    setT1]    = useState(() => {
+    const v = state?.preselect1 ?? state?.preselect
+    return v ? String(v) : ''
+  })
+  const [t2Id,    setT2]    = useState(() =>
+    state?.preselect2 ? String(state.preselect2) : ''
+  )
   const [loading, setL]     = useState(false)
   const [result,  setR]     = useState(null)
   const [copied,  setCopied] = useState(false)
+
+  // Auto-run once when both teams arrive pre-filled from MatchDetail
+  const autoRunFired = useRef(false)
 
   const team1 = teams.find(t => t.id === Number(t1Id))
   const team2 = teams.find(t => t.id === Number(t2Id))
@@ -97,6 +108,15 @@ export default function AiPredict() {
       setL(false)
     }
   }, [ready, team1, team2, lang])
+
+  // ── Auto-run when both teams pre-filled from MatchDetail ──────────────
+  useEffect(() => {
+    if (autoRunFired.current) return              // only once
+    if (!state?.preselect1 || !state?.preselect2) return  // only when pre-filled
+    if (!ready || loading) return                 // wait until teams loaded
+    autoRunFired.current = true
+    run()
+  }, [ready, loading, run, state])
 
   // ── Copy to clipboard ────────────────────────────────
   const copy = () => {

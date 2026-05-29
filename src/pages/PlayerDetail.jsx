@@ -163,7 +163,6 @@ export default function PlayerDetail() {
           { label: t('common','goals'),   val: player.goals   },
           { label: t('common','assists'),  val: player.assists  },
           { label: t('common','rating'),   val: player.rating   },
-          { label: t('common','value'),    val: player.val      },
         ].map(s => (
           <div key={s.label} className="card-sm" style={{ textAlign: 'center' }}>
             <div className="label">{s.label}</div>
@@ -201,15 +200,6 @@ export default function PlayerDetail() {
           <StatBar label={t('player','overall_rating')} value={player.rating}   max={10}  />
           <StatBar label={t('player','intl_goals')}    value={player.intlGoals} max={120} />
 
-          <div className="divider" />
-          <div className="label mb-8">{t('player','market_value')}</div>
-          <div className="val text-gold">
-            {player.val && player.val !== '—' ? player.val : (
-              <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>
-                {IS_MOCK ? '—' : 'N/A (not provided by API)'}
-              </span>
-            )}
-          </div>
         </div>
       </div>
     </div>

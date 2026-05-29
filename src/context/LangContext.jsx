@@ -75,6 +75,12 @@ const translations = {
       score: 'Your score', genius: "You're a football genius!",
       not_bad: 'Not bad!', keep_learning: 'Keep learning!',
     },
+    news: {
+      tab_all: 'All', tab_breaking: 'Breaking', tab_match_report: 'Match Report',
+      tab_injury: 'Injury', tab_transfer: 'Transfer', tab_trending: 'Trending',
+      read_full: 'Read Full Article', open_source: 'Open source',
+      preview_note: 'Preview — full article on source site',
+    },
   },
   es: {
     nav: {
@@ -149,6 +155,12 @@ const translations = {
       correct: '¡Correcto!', incorrect: 'Incorrecto',
       score: 'Tu puntuación', genius: '¡Eres un genio del fútbol!',
       not_bad: '¡No está mal!', keep_learning: '¡Sigue aprendiendo!',
+    },
+    news: {
+      tab_all: 'Todas', tab_breaking: 'Urgente', tab_match_report: 'Crónica',
+      tab_injury: 'Lesión', tab_transfer: 'Fichaje', tab_trending: 'Tendencia',
+      read_full: 'Leer artículo completo', open_source: 'Abrir fuente',
+      preview_note: 'Vista previa — artículo completo en la fuente',
     },
   },
 }

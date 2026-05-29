@@ -287,7 +287,9 @@ export default function TeamDetail() {
                   width: '100%', textAlign: 'left', cursor: 'pointer',
                   border: '1px solid rgba(255,255,255,0.06)', display: 'block',
                 }}
-                onClick={() => navigate(`/matches/${m.id}`)}
+                onClick={() => m.status === 'live'
+                  ? navigate(`/live/${m.id}`,    { state: { match: m } })
+                  : navigate(`/matches/${m.id}`, { state: { match: m } })}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', flex: 1 }}>

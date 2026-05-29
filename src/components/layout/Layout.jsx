@@ -44,7 +44,7 @@ export default function Layout() {
                 role="listitem"
               >
                 <span aria-hidden="true">{item.icon}</span>
-                {t('nav', item.key)}
+                <span className="nav-label">{t('nav', item.key)}</span>
               </NavLink>
             ))}
           </div>
@@ -55,14 +55,19 @@ export default function Layout() {
               onClick={toggleLang}
               aria-label={`Switch to ${lang === 'en' ? 'Spanish' : 'English'}`}
             >
-              {lang === 'en' ? '🇺🇸 EN' : '🇪🇸 ES'}
+              <img
+                src={`https://flagcdn.com/w40/${lang === 'en' ? 'us' : 'es'}.png`}
+                alt={lang === 'en' ? 'US flag' : 'ES flag'}
+                className="lang-flag"
+              />
+              <span>{lang === 'en' ? 'EN' : 'ES'}</span>
             </button>
             <button
               className="search-icon-btn"
               onClick={() => setSearchOpen(true)}
               aria-label="Open search"
             >
-              🔍
+              <i className="fa-solid fa-magnifying-glass fa-lg" aria-hidden="true" />
             </button>
           </div>
         </div>

@@ -9,7 +9,8 @@ const BASE = '/api/news'   // proxied: Vite in dev, Vercel rewrite in prod
 const KEY  = import.meta.env.VITE_NEWS_API_KEY || ''
 const isMock = !KEY || KEY === 'TU_CLAVE_AQUI'
 
-const QUERIES = {
+// ─── Query strings (EN) ─────────────────────────────
+const QUERIES_EN = {
   all:          'FIFA "World Cup 2026"',
   breaking:     'FIFA "World Cup 2026" breaking',
   match_report: 'FIFA "World Cup 2026" match goal score',
@@ -18,7 +19,21 @@ const QUERIES = {
   trending:     'FIFA "World Cup 2026" reaction',
 }
 
-export async function getNews(category = 'all', pageSize = 18) {
+// ─── Query strings (ES) ─────────────────────────────
+const QUERIES_ES = {
+  all:          '"Copa del Mundo 2026" OR "Mundial 2026"',
+  breaking:     '"Copa del Mundo 2026" últimas noticias urgente',
+  match_report: '"Copa del Mundo 2026" partido gol resultado crónica',
+  injury:       '"Copa del Mundo 2026" lesión jugador baja',
+  transfer:     '"Copa del Mundo 2026" fichaje transferencia',
+  trending:     '"Copa del Mundo 2026" reacción tendencia viral',
+}
+
+// ─── Soccer relevance filters ────────────────────────
+const SOCCER_EN = /soccer|football|fifa|world cup|goal|messi|ronaldo|mbappé|neymar|premier|liga|bundesliga|serie a|ligue 1/i
+const SOCCER_ES = /fútbol|mundial|copa del mundo|gol|messi|ronaldo|mbappé|neymar|selección|liga|bundesliga|premier/i
+
+export async function getNews(category = 'all', lang = 'en', pageSize = 18) {
   if (isMock) {
     const catMap = {
       all:          NEWS,
@@ -32,35 +47,62 @@ export async function getNews(category = 'all', pageSize = 18) {
     return catMap[category]?.length ? catMap[category] : NEWS
   }
 
-  const q = QUERIES[category] || QUERIES.all
-  const url = `${BASE}/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=${pageSize}&apiKey=${KEY}`
+  const isEs   = lang === 'es'
+  const queries = isEs ? QUERIES_ES : QUERIES_EN
+  const q       = queries[category] || queries.all
+  const apiLang = isEs ? 'es' : 'en'
+  const filter  = isEs ? SOCCER_ES : SOCCER_EN
+
+  const url = `${BASE}/everything?q=${encodeURIComponent(q)}&language=${apiLang}&sortBy=publishedAt&pageSize=${pageSize}&apiKey=${KEY}`
 
   const data = await get(url)
-  const SOCCER_TERMS = /soccer|football|fifa|world cup|goal|messi|ronaldo|mbappé|neymar|premier|liga|bundesliga|serie a|ligue 1/i
   return (data.articles || [])
     .filter(a => a.title && a.title !== '[Removed]')
-    .filter(a => SOCCER_TERMS.test(a.title) || SOCCER_TERMS.test(a.description || ''))
-    .map(normalizeArticle)
+    .filter(a => filter.test(a.title) || filter.test(a.description || ''))
+    .map(a => normalizeArticle(a, lang))
 }
 
-export async function getHeadlines(pageSize = 6) {
+export async function getHeadlines(lang = 'en', pageSize = 6) {
   if (isMock) return NEWS.slice(0, 6)
 
-  const url = `${BASE}/top-headlines?q=World+Cup+2026&language=en&pageSize=${pageSize}&apiKey=${KEY}`
+  const isEs = lang === 'es'
+  const q    = isEs ? 'Copa del Mundo 2026' : 'World Cup 2026'
+  const url  = `${BASE}/top-headlines?q=${encodeURIComponent(q)}&language=${isEs ? 'es' : 'en'}&pageSize=${pageSize}&apiKey=${KEY}`
   const data = await get(url)
-  return (data.articles || []).map(normalizeArticle)
+  return (data.articles || []).map(a => normalizeArticle(a, lang))
 }
 
 // ─── Normalizador ────────────────────────────────────
 
-function normalizeArticle(a) {
+function normalizeArticle(a, lang = 'en') {
   const title = a.title?.toLowerCase() || ''
+  const isEs  = lang === 'es'
+
+  // Category detection — bilingual keyword matching
   let cat = 'WORLD CUP'
-  if (title.includes('injur') || title.includes('doubt') || title.includes('miss')) cat = 'INJURY'
-  else if (title.includes('transfer') || title.includes('sign') || title.includes('deal')) cat = 'TRANSFER'
-  else if (title.includes('goal') || title.includes('beat') || title.includes('win') || title.includes('score')) cat = 'MATCH REPORT'
-  else if (title.includes('break') || title.includes('confirm') || title.includes('announce')) cat = 'BREAKING'
-  else if (title.includes('trend') || title.includes('viral') || title.includes('reaction')) cat = 'TRENDING'
+  if (isEs) {
+    if (title.includes('lesión') || title.includes('lesion') || title.includes('baja') || title.includes('duda'))
+      cat = 'INJURY'
+    else if (title.includes('fichaje') || title.includes('transferencia') || title.includes('contrato') || title.includes('firma'))
+      cat = 'TRANSFER'
+    else if (title.includes('gol') || title.includes('derrota') || title.includes('victoria') || title.includes('empate') || title.includes('resultado'))
+      cat = 'MATCH REPORT'
+    else if (title.includes('urgente') || title.includes('confirma') || title.includes('anuncia') || title.includes('oficial'))
+      cat = 'BREAKING'
+    else if (title.includes('tendencia') || title.includes('viral') || title.includes('reacción') || title.includes('reaccion'))
+      cat = 'TRENDING'
+  } else {
+    if (title.includes('injur') || title.includes('doubt') || title.includes('miss'))
+      cat = 'INJURY'
+    else if (title.includes('transfer') || title.includes('sign') || title.includes('deal'))
+      cat = 'TRANSFER'
+    else if (title.includes('goal') || title.includes('beat') || title.includes('win') || title.includes('score'))
+      cat = 'MATCH REPORT'
+    else if (title.includes('break') || title.includes('confirm') || title.includes('announce'))
+      cat = 'BREAKING'
+    else if (title.includes('trend') || title.includes('viral') || title.includes('reaction'))
+      cat = 'TRENDING'
+  }
 
   const emojiMap = {
     'INJURY': '🚑', 'TRANSFER': '💰', 'MATCH REPORT': '⚽',
@@ -71,9 +113,14 @@ function normalizeArticle(a) {
     'WORLD CUP': '#10b981', 'TRANSFER': '#f97316', 'TRENDING': '#06b6d4',
   }
 
+  // Human-readable category label in the right language
+  const catLabelEN = { 'INJURY': 'INJURY', 'TRANSFER': 'TRANSFER', 'MATCH REPORT': 'MATCH REPORT', 'BREAKING': 'BREAKING', 'WORLD CUP': 'WORLD CUP', 'TRENDING': 'TRENDING' }
+  const catLabelES = { 'INJURY': 'LESIÓN', 'TRANSFER': 'FICHAJE', 'MATCH REPORT': 'CRÓNICA', 'BREAKING': 'URGENTE', 'WORLD CUP': 'MUNDIAL', 'TRENDING': 'TENDENCIA' }
+
   return {
     id:      a.url,
     cat,
+    catLabel: isEs ? (catLabelES[cat] || cat) : (catLabelEN[cat] || cat),
     emoji:   emojiMap[cat]  || '📰',
     color:   colorMap[cat]  || '#64748b',
     title:   a.title,
@@ -81,14 +128,20 @@ function normalizeArticle(a) {
     url:     a.url,
     image:   a.urlToImage  || null,
     source:  a.source?.name || '',
-    time:    relativeTime(a.publishedAt),
+    time:    relativeTime(a.publishedAt, lang),
   }
 }
 
-function relativeTime(iso) {
+function relativeTime(iso, lang = 'en') {
   if (!iso) return ''
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
+  if (lang === 'es') {
+    if (mins < 60)  return `hace ${mins} min`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24)   return `hace ${hrs}h`
+    return `hace ${Math.floor(hrs / 24)}d`
+  }
   if (mins < 60)  return `${mins} min ago`
   const hrs = Math.floor(mins / 60)
   if (hrs < 24)   return `${hrs}h ago`

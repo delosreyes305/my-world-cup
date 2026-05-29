@@ -20,7 +20,7 @@
   padding: 4px 8px 4px 16px;
   margin-bottom: 24px;
 }
-.search-icon { font-size: 16px; color: var(--text3); flex-shrink: 0; }
+.search-icon { font-size: 16px; color: var(--text3); flex-shrink: 0; line-height: 1; }
 .search-input {
   flex: 1;
   background: none;

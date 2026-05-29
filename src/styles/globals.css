@@ -112,6 +112,9 @@ img { max-width: 100%; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 
+/* Prevent grid items from expanding beyond their track (critical for overflow) */
+.grid-2 > *, .grid-3 > *, .grid-4 > * { min-width: 0; }
+
 @media (max-width: 1024px) { .grid-4 { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 900px)  { .grid-3 { grid-template-columns: 1fr 1fr; } .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 768px) {
@@ -123,8 +126,7 @@ img { max-width: 100%; }
 .table-scroll-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin: 0 -20px;
-  padding: 0 20px;
+  /* No negative margins — they fight with overflow:hidden on parent cards */
 }
 @media (max-width: 480px) {
   .data-table th, .data-table td { padding: 6px 5px; font-size: 11px; }

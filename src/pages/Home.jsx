@@ -228,11 +228,11 @@ export default function Home() {
 
       {/* ── Groups + Ranking ── */}
       <section className="grid-2 mb-24">
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div className="section-header mb-16">
             <h2 className="section-title"> <span>{t('home','group_stage')}</span></h2>
           </div>
-          <div className="card" style={{ flex: 1, overflow: 'hidden' }}>
+          <div className="card" style={{ flex: 1, minWidth: 0 }}>
             <div className="scroll-tabs" role="tablist" style={{ marginBottom: 14 }}>
               {['A','B','C','D','E','F','G','H','I','J','K','L'].map(g => (
                 <button key={g}
@@ -248,11 +248,11 @@ export default function Home() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div className="section-header mb-16">
             <h2 className="section-title"><span>{t('home','ranking')}</span></h2>
           </div>
-          <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
+          <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden', minWidth: 0 }}>
             {rankedTeams.map((team, i) => (
               <button key={team.id}
                 className="card-clickable"

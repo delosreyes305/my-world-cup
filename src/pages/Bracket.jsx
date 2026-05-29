@@ -111,16 +111,16 @@ function GroupTable({ letter, teams, lang }) {
       <h3 className="fw-600 mb-10" style={{ fontSize: 13, color: 'var(--gold)' }}>
         {lang === 'es' ? 'Grupo' : 'Group'} {letter}
       </h3>
-      <div style={{ overflowX: 'auto' }}>
+      <div className="table-scroll-wrap" style={{ margin: 0, padding: 0 }}>
       <table className="data-table" aria-label={`Group ${letter}`}>
         <thead>
           <tr>
             <th style={{ width: 20 }}>#</th>
             <th>{lang === 'es' ? 'Equipo' : 'Team'}</th>
             <th>MP</th>
-            <th>W</th>
-            <th>D</th>
-            <th>L</th>
+            <th className="col-hide-xs">W</th>
+            <th className="col-hide-xs">D</th>
+            <th className="col-hide-xs">L</th>
             <th>GD</th>
             <th className="text-gold">Pts</th>
           </tr>
@@ -133,16 +133,16 @@ function GroupTable({ letter, teams, lang }) {
                 <td>
                   <div className={`standing-pos${i < 2 ? ' qualify' : ''}`}>{i + 1}</div>
                 </td>
-                <td>
+                <td style={{ maxWidth: 130 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <Flag flag={t.flag} name={t.name} size={14} />
-                    <span style={{ whiteSpace: 'nowrap' }}>{t.name}</span>
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>{t.name}</span>
                   </span>
                 </td>
                 <td>{t.mp}</td>
-                <td>{t.w}</td>
-                <td>{t.d}</td>
-                <td>{t.l}</td>
+                <td className="col-hide-xs">{t.w}</td>
+                <td className="col-hide-xs">{t.d}</td>
+                <td className="col-hide-xs">{t.l}</td>
                 <td className={gd > 0 ? 'text-green' : gd < 0 ? 'text-red' : 'text-muted'}>
                   {gd > 0 ? '+' : ''}{gd}
                 </td>

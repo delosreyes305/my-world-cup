@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useApiPolling, useApi } from '../../hooks/useApi'
-import { getLiveMatches, getAllFixtures, getMatchEvents } from '../../services/sportsService'
+import { getLiveMatches, getAllFixtures, getMatchEvents, TEAM_ISO } from '../../services/sportsService'
 import { useLang } from '../../context/LangContext'
 
 // Map raw event type/detail → short label (null = skip this event)
@@ -20,6 +20,20 @@ function eventLabel(e) {
   if (type === 'subst') return 'SUB'
   if (type === 'var')   return 'VAR'
   return null
+}
+
+// Small flag image from flagcdn.com
+function TickerFlag({ name }) {
+  const iso = TEAM_ISO[name]
+  if (!iso) return null
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${iso}.png`}
+      alt=""
+      className="ticker-flag"
+      onError={e => { e.target.style.display = 'none' }}
+    />
+  )
 }
 
 export default function LiveTicker() {
@@ -55,8 +69,6 @@ export default function LiveTicker() {
       const items = []
       results.forEach(({ m, evts }) => {
         const score = `${m.team1} ${m.score1 ?? 0}–${m.score2 ?? 0} ${m.team2}`
-
-        // Filter to notable events only
         const notable = evts.filter(e => eventLabel(e))
 
         if (notable.length) {
@@ -66,7 +78,6 @@ export default function LiveTicker() {
             items.push(`${label}  ${who}  —  ${score}`)
           })
         } else {
-          // No events yet — show current score + elapsed
           const elapsed = m.time ? `${m.time}` : ''
           items.push(`${score}${elapsed ? `  ${elapsed}` : ''}`)
         }
@@ -76,25 +87,28 @@ export default function LiveTicker() {
     })
 
     return () => { cancelled = true }
-  }, [hasLive, liveMatches]) // re-runs every time liveMatches updates (every 30 s)
+  }, [hasLive, liveMatches])
 
   // ── Build ticker content ─────────────────────────────
-  const { text, isLive, label } = useMemo(() => {
-    // LIVE mode
+  const { liveText, upcomingItems, isLive, label, duration } = useMemo(() => {
+    // LIVE mode — plain text (unchanged)
     if (hasLive) {
       const items = eventItems.length
         ? eventItems
         : (liveMatches || []).map(m =>
             `${m.team1} ${m.score1 ?? 0}–${m.score2 ?? 0} ${m.team2}  ${m.time ?? ''}`
           )
+      const text = items.join('  |  ')
       return {
-        text:   items.join('  |  '),
+        liveText: text,
+        upcomingItems: [],
         isLive: true,
-        label:  lang === 'es' ? 'EN VIVO' : 'LIVE',
+        label: lang === 'es' ? 'EN VIVO' : 'LIVE',
+        duration: Math.max(18, Math.round(text.length / 6)),
       }
     }
 
-    // UPCOMING mode — next 8 scheduled matches sorted by date
+    // UPCOMING mode — with flag images
     const upcoming = (allFixtures || [])
       .filter(m => m.status === 'upcoming')
       .sort((a, b) => {
@@ -105,39 +119,45 @@ export default function LiveTicker() {
       })
       .slice(0, 8)
 
-    if (!upcoming.length) return { text: '', isLive: false, label: '' }
+    if (!upcoming.length) return { liveText: '', upcomingItems: [], isLive: false, label: '', duration: 20 }
 
     const items = upcoming.map(m => {
-      // Flags: only use emoji (not URLs) in the text ticker
-      const ef1 = m.flag1 && typeof m.flag1 === 'string' && !m.flag1.startsWith('http') ? m.flag1 : ''
-      const ef2 = m.flag2 && typeof m.flag2 === 'string' && !m.flag2.startsWith('http') ? m.flag2 : ''
-      const t1  = [ef1, m.team1].filter(Boolean).join(' ')
-      const t2  = [ef2, m.team2].filter(Boolean).join(' ')
-      const parts = [`${t1} vs ${t2}`]
+      const parts = []
       if (m.date) {
-        const dateStr = new Date(m.date).toLocaleDateString(
+        parts.push(new Date(m.date).toLocaleDateString(
           lang === 'es' ? 'es-MX' : 'en-US',
           { month: 'short', day: 'numeric' }
-        )
-        parts.push(dateStr)
+        ))
       }
       if (m.time)    parts.push(m.time)
-      if (m.stadium) parts.push(m.stadium)   // city
-      if (m.venue)   parts.push(m.venue)     // stadium name
-      return parts.join('  ·  ')
+      if (m.stadium) parts.push(m.stadium)
+      return { id: m.id, team1: m.team1, team2: m.team2, meta: parts.join(' · ') }
     })
 
     return {
-      text:   items.join('  |  '),
+      liveText: '',
+      upcomingItems: items,
       isLive: false,
-      label:  lang === 'es' ? 'PRÓXIMOS' : 'UPCOMING',
+      label: lang === 'es' ? 'PRÓXIMOS' : 'UPCOMING',
+      duration: Math.max(22, items.length * 9),
     }
   }, [hasLive, eventItems, liveMatches, allFixtures, lang])
 
-  if (!text) return null
+  const hasContent = isLive ? !!liveText : upcomingItems.length > 0
+  if (!hasContent) return null
 
-  // Speed proportional to content length (~60 chars/sec feels natural)
-  const duration = Math.max(18, Math.round(text.length / 6))
+  // Render upcoming items — called twice (a/b) for seamless CSS loop
+  const renderItems = (prefix) => upcomingItems.map((item, i) => (
+    <span key={`${prefix}-${i}`} className="ticker-item">
+      <TickerFlag name={item.team1} />
+      <span className="ticker-team">{item.team1}</span>
+      <span className="ticker-vs"> vs </span>
+      <TickerFlag name={item.team2} />
+      <span className="ticker-team">{item.team2}</span>
+      {item.meta && <span className="ticker-meta"> · {item.meta}</span>}
+      <span className="ticker-sep">&nbsp;&nbsp;|&nbsp;&nbsp;</span>
+    </span>
+  ))
 
   return (
     <div
@@ -150,14 +170,19 @@ export default function LiveTicker() {
         {label}
       </div>
 
-      {/* Duplicate text for seamless CSS loop (translateX 0 → -50%) */}
       <div className="ticker-scroll" aria-hidden="true">
-        <span
-          className="ticker-text"
-          style={{ animationDuration: `${duration}s` }}
-        >
-          {text}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{text}
-        </span>
+        {isLive ? (
+          // Live: plain text, unchanged approach
+          <span className="ticker-text" style={{ animationDuration: `${duration}s` }}>
+            {liveText}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{liveText}
+          </span>
+        ) : (
+          // Upcoming: flex items with flag images
+          <span className="ticker-text ticker-flex" style={{ animationDuration: `${duration}s` }}>
+            {renderItems('a')}
+            {renderItems('b')}
+          </span>
+        )}
       </div>
     </div>
   )

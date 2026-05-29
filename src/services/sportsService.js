@@ -197,6 +197,29 @@ export const TEAM_METADATA = {
   'New Zealand':          { rank: 97, titles: 0 },
 }
 
+/** ISO 3166-1 alpha-2 codes for flagcdn.com — keys match TEAM_METADATA */
+export const TEAM_ISO = {
+  // UEFA
+  Argentina: 'ar',   Spain: 'es',      France: 'fr',     England: 'gb-eng',
+  Portugal: 'pt',    Netherlands: 'nl', Belgium: 'be',    Germany: 'de',
+  Croatia: 'hr',     Switzerland: 'ch', Sweden: 'se',     Austria: 'at',
+  'Czech Republic': 'cz', Scotland: 'gb-sct', Norway: 'no', 'Türkiye': 'tr',
+  'Bosnia & Herzegovina': 'ba',
+  // CONMEBOL
+  Brazil: 'br', Colombia: 'co', Uruguay: 'uy', Ecuador: 'ec', Paraguay: 'py',
+  // CONCACAF
+  USA: 'us', Mexico: 'mx', Canada: 'ca', Panama: 'pa', 'Curaçao': 'cw', Haiti: 'ht',
+  // CAF
+  Morocco: 'ma', Senegal: 'sn', Algeria: 'dz', Tunisia: 'tn', Egypt: 'eg',
+  'Ivory Coast': 'ci', 'Congo DR': 'cd', Ghana: 'gh', 'South Africa': 'za',
+  'Cape Verde Islands': 'cv',
+  // AFC
+  Japan: 'jp', 'South Korea': 'kr', Iran: 'ir', Australia: 'au',
+  Jordan: 'jo', Uzbekistan: 'uz', Iraq: 'iq', Qatar: 'qa', 'Saudi Arabia': 'sa',
+  // OFC
+  'New Zealand': 'nz',
+}
+
 /** Static confederation mapping for all 48 WC 2026 teams */
 const CONFEDERATION_MAP = {
   // UEFA – 16
@@ -571,6 +594,37 @@ export async function getPlayerDetails(playerId) {
     } catch { /* try next season */ }
   }
   return null
+}
+
+// ─────────────────────────────────────────────────────
+// FORM — últimos N partidos de un equipo
+// Uses /fixtures?team=ID&last=N (any competition)
+// Returns array of 'W' | 'D' | 'L' strings, oldest → newest
+// ─────────────────────────────────────────────────────
+
+export async function getTeamForm(teamId, last = 5) {
+  if (isMock) return []
+  try {
+    const data = await get(
+      `${BASE}/fixtures?team=${teamId}&last=${last}`,
+      { headers }
+    )
+    return (data.response || []).map(f => {
+      const h        = f.teams?.home
+      const a        = f.teams?.away
+      const g        = f.goals
+      const isHome   = h?.id === Number(teamId)
+      const myGoals  = isHome ? g?.home : g?.away
+      const oppGoals = isHome ? g?.away : g?.home
+      const finished = ['FT', 'AET', 'PEN'].includes(f.fixture?.status?.short)
+      if (!finished || myGoals == null || oppGoals == null) return null
+      if (myGoals > oppGoals) return 'W'
+      if (myGoals === oppGoals) return 'D'
+      return 'L'
+    }).filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 // ─────────────────────────────────────────────────────

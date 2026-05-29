@@ -16,6 +16,7 @@ import Trivia from './pages/Trivia'
 import AiPredict from './pages/AiPredict'
 import Favorites from './pages/Favorites'
 import LiveMatch from './pages/LiveMatch'
+import FifaRanking from './pages/FifaRanking'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
               <Route path="trivia" element={<Trivia />} />
               <Route path="predict" element={<AiPredict />} />
               <Route path="favorites" element={<Favorites />} />
+              <Route path="ranking" element={<FifaRanking />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

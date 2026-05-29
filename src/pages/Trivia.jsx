@@ -1,15 +1,22 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState } from 'react'
 import { useLang } from '../context/LangContext'
-import { generateTriviaQuestion } from '../services/aiService'
 import { TRIVIA_BANK, FUN_FACTS } from '../data/mockData'
 
-// ── Pick a random question (excluding the last one) ──────
-function pickLocal(exclude) {
-  const pool = TRIVIA_BANK.filter(q => q.id !== exclude?.id)
-  return pool[Math.floor(Math.random() * pool.length)]
+// ── Level configuration ───────────────────────────
+const LEVELS = [
+  { n: 1, total: 5,  pass: 3  },
+  { n: 2, total: 10, pass: 7  },
+  { n: 3, total: 15, pass: 15 },
+]
+
+// ── Pick N non-repeating questions ───────────────
+function pickQuestions(n, usedIds = []) {
+  const pool = TRIVIA_BANK.filter(q => !usedIds.includes(q.id))
+  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, Math.min(n, shuffled.length))
 }
 
-// ── Pick N random items from an array (no repeats) ───────
+// ── Pick N random items ───────────────────────────
 function pickRandom(arr, n) {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
 }
@@ -18,77 +25,249 @@ const FACTS_PER_PAGE = 6
 
 export default function Trivia() {
   const { t, lang } = useLang()
-  const [current,  setCurrent ] = useState(() => pickLocal(null))
-  const [answered, setAnswered] = useState(false)
-  const [selected, setSelected ] = useState(null)
-  const [score,    setScore    ] = useState({ correct:0, total:0 })
-  const [aiLoading,setAiL     ] = useState(false)
 
-  // Random fun facts — picked once per page load, change on next mount
+  // Game state
+  const [phase, setPhase]             = useState('playing') // 'playing' | 'level_pass' | 'level_fail' | 'champion'
+  const [levelIdx, setLevelIdx]       = useState(0)
+  const [levelQuestions, setLQ]       = useState(() => pickQuestions(LEVELS[0].total))
+  const [qIndex, setQIndex]           = useState(0)
+  const [levelCorrect, setLevelCorrect] = useState(0)
+  const [answered, setAnswered]       = useState(false)
+  const [selected, setSelected]       = useState(null)
+  const [usedIds, setUsedIds]         = useState([])
+
   const [displayedFacts] = useState(() => pickRandom(FUN_FACTS, FACTS_PER_PAGE))
 
-  const next = useCallback(async () => {
-    setAiL(true)
-    setAnswered(false); setSelected(null)
-    try {
-      const aiQ = await generateTriviaQuestion(lang)
-      if (aiQ) { setCurrent(aiQ); setAiL(false); return }
-    } catch { /* fallback */ }
-    setCurrent(pickLocal(current))
-    setAiL(false)
-  }, [current, lang])
+  const cfg      = LEVELS[levelIdx]
+  const currentQ = levelQuestions[qIndex]
 
-  const answer = (idx) => {
-    setSelected(idx); setAnswered(true)
-    setScore(s => ({
-      correct: s.correct + (idx === current.correct ? 1 : 0),
-      total:   s.total   + 1,
-    }))
+  // ── Localized question helpers ────────────────────
+  const qText    = (q) => (lang === 'es' && q?.q_es)       ? q.q_es       : q?.q
+  const qOpts    = (q) => (lang === 'es' && q?.opts_es)    ? q.opts_es    : q?.opts
+  const qExplain = (q) => (lang === 'es' && q?.explain_es) ? q.explain_es : q?.explain
+  const factText = (f) => (lang === 'es' && f?.fact_es)    ? f.fact_es    : f?.fact
+
+  // ── i18n text ─────────────────────────────────────
+  const es = lang === 'es'
+  const tx = {
+    level:      es ? 'Nivel'     : 'Level',
+    question:   es ? 'Pregunta'  : 'Question',
+    of:         es ? 'de'        : 'of',
+    corrects:   es ? 'Correctas' : 'Correct',
+    need:       es ? 'Necesitas' : 'Need',
+    hint:       es ? 'Pista:'    : 'Hint:',
+    correct:    es ? '¡Correcto!' : 'Correct!',
+    incorrect:  es ? 'Incorrecto' : 'Incorrect',
+    next:       es ? 'Siguiente →' : 'Next →',
+    seeResult:  es ? 'Ver resultado del nivel →' : 'See level result →',
+    levelDesc:  es
+      ? ['3/5 correctas para avanzar', '7/10 correctas para avanzar', '15/15 para ser campeón']
+      : ['3/5 correct to advance',     '7/10 correct to advance',     '15/15 to become champion'],
+    // Pass screen
+    passTitle:  (n) => es ? `¡Nivel ${n} Superado!`           : `Level ${n} Passed!`,
+    passMsg:    (n) => es ? `¡Avanzas al Nivel ${n}!`          : `Advancing to Level ${n}!`,
+    passBtn:    es ? 'Continuar al siguiente nivel →'          : 'Continue to next level →',
+    // Fail screen
+    failTitle:  es ? '¡Has perdido!' : 'You Lost!',
+    failMsg:    (c, total, p) => es
+      ? `Obtuviste ${c} de ${total} correctas, pero necesitabas ${p}. ¡Inténtalo de nuevo!`
+      : `You scored ${c} out of ${total}, but needed ${p}. Try again!`,
+    failBtn:    es ? 'Intentarlo de nuevo' : 'Try Again',
+    // Champion screen
+    champTitle: es ? '¡Campeón de Trivia Mundialista!' : 'World Cup Trivia Champion!',
+    champMsg:   es
+      ? '¡Respondiste 15/15 correctas! Eres un verdadero maestro del fútbol mundial.'
+      : 'You scored 15/15! You are a true master of world football.',
+    champBtn:   es ? 'Jugar de nuevo' : 'Play Again',
+    champLevels:es ? 'Niveles completados' : 'Levels completed',
+    // Misc
+    cantPass:   es
+      ? 'Ya no es posible alcanzar el mínimo requerido en este nivel.'
+      : "It's no longer possible to reach the minimum for this level.",
+    funFacts:   t('trivia', 'fun_facts'),
   }
 
-  const accuracy = score.total > 0 ? Math.round(score.correct / score.total * 100) : 0
+  // ── Game logic ────────────────────────────────────
+  function answer(idx) {
+    if (answered) return
+    setSelected(idx)
+    setAnswered(true)
+    if (idx === currentQ.correct) setLevelCorrect(c => c + 1)
+  }
+
+  function nextQuestion() {
+    const nextIdx = qIndex + 1
+    if (nextIdx >= cfg.total) {
+      // End of level — levelCorrect already reflects all answers including current
+      if (levelCorrect >= cfg.pass) {
+        setPhase(levelIdx === LEVELS.length - 1 ? 'champion' : 'level_pass')
+      } else {
+        setPhase('level_fail')
+      }
+    } else {
+      setQIndex(nextIdx)
+      setAnswered(false)
+      setSelected(null)
+    }
+  }
+
+  function advanceLevel() {
+    const next      = levelIdx + 1
+    const nowUsed   = [...usedIds, ...levelQuestions.map(q => q.id)]
+    setUsedIds(nowUsed)
+    setLevelIdx(next)
+    setLQ(pickQuestions(LEVELS[next].total, nowUsed))
+    setQIndex(0)
+    setLevelCorrect(0)
+    setAnswered(false)
+    setSelected(null)
+    setPhase('playing')
+  }
+
+  function restart() {
+    setPhase('playing')
+    setLevelIdx(0)
+    setLQ(pickQuestions(LEVELS[0].total))
+    setQIndex(0)
+    setLevelCorrect(0)
+    setAnswered(false)
+    setSelected(null)
+    setUsedIds([])
+  }
+
+  // ── CHAMPION SCREEN ───────────────────────────────
+  if (phase === 'champion') {
+    return (
+      <div className="page-content page-enter">
+        <div className="trivia-result-screen trivia-champion-screen">
+          <div className="trivia-result-icon trivia-champion-icon" aria-hidden="true">🏆</div>
+          <div className="trivia-champion-stars" aria-hidden="true">
+            <span>⭐</span><span>⭐</span><span>⭐</span>
+          </div>
+          <h1 className="trivia-champion-title">{tx.champTitle}</h1>
+          <p className="trivia-result-msg">{tx.champMsg}</p>
+
+          <div className="trivia-champion-levels">
+            {LEVELS.map((l, i) => (
+              <div key={i} className="trivia-champion-level-badge">
+                <span aria-hidden="true">{['🥉','🥈','🥇'][i]}</span>
+                <span className="trivia-clb-label">{tx.level} {l.n}</span>
+                <span className="trivia-clb-check">✓</span>
+              </div>
+            ))}
+          </div>
+
+          <button className="btn btn-gold trivia-result-btn" onClick={restart}>
+            🎲 {tx.champBtn}
+          </button>
+        </div>
+
+        <div className="divider" />
+        <FunFactsSection facts={displayedFacts} heading={tx.funFacts} total={FUN_FACTS.length} factText={factText} />
+      </div>
+    )
+  }
+
+  // ── LEVEL PASS SCREEN ─────────────────────────────
+  if (phase === 'level_pass') {
+    return (
+      <div className="page-content page-enter">
+        <div className="trivia-result-screen trivia-pass-screen">
+          <div className="trivia-result-icon trivia-bounce-icon" aria-hidden="true">🎉</div>
+          <h2 className="trivia-pass-title">{tx.passTitle(cfg.n)}</h2>
+          <p className="trivia-result-msg">{tx.passMsg(cfg.n + 1)}</p>
+          <div className="trivia-score-pill trivia-score-green">
+            ✅ {levelCorrect}/{cfg.total} {tx.corrects}
+          </div>
+          <button className="btn btn-gold trivia-result-btn" onClick={advanceLevel}>
+            {tx.passBtn}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── LEVEL FAIL SCREEN ─────────────────────────────
+  if (phase === 'level_fail') {
+    return (
+      <div className="page-content page-enter">
+        <div className="trivia-result-screen trivia-fail-screen">
+          <div className="trivia-result-icon trivia-shake-icon" aria-hidden="true">❌</div>
+          <h2 className="trivia-fail-title">{tx.failTitle}</h2>
+          <p className="trivia-result-msg">{tx.failMsg(levelCorrect, cfg.total, cfg.pass)}</p>
+          <button className="btn btn-gold trivia-result-btn" onClick={restart}>
+            {tx.failBtn}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── PLAYING SCREEN ────────────────────────────────
+  const progressPct    = ((qIndex + (answered ? 1 : 0)) / cfg.total) * 100
+  const passNeeds      = cfg.pass - levelCorrect
+  const questionsLeft  = cfg.total - qIndex - (answered ? 1 : 0)
+  const canStillPass   = passNeeds <= questionsLeft
+  const isLastQuestion = qIndex + 1 >= cfg.total
 
   return (
     <div className="page-content page-enter">
+
+      {/* Header */}
       <div className="section-header mb-16">
-        <h1 className="section-title"> <span>{t('trivia','title')}</span></h1>
-        {score.total > 0 && (
-          <div className="flex gap-8">
-            <span className="badge badge-gold">🏆 {score.correct}/{score.total}</span>
-            <span className="badge badge-green">{accuracy}%</span>
-          </div>
-        )}
+        <h1 className="section-title"><span>{t('trivia', 'title')}</span></h1>
       </div>
 
-      {/* Tarjeta de pregunta */}
-      {aiLoading ? (
-        <div className="card" style={{ textAlign:'center', padding:'48px' }}>
-          <div className="ai-dots" aria-hidden="true" style={{ marginBottom:12, justifyContent:'center', display:'flex', gap:4 }}>
-            <span/><span/><span/>
+      {/* Level indicator tabs */}
+      <div className="trivia-level-tabs">
+        {LEVELS.map((l, i) => (
+          <div
+            key={i}
+            className={`trivia-level-tab${i === levelIdx ? ' active' : ''}${i > levelIdx ? ' locked' : ''}`}
+          >
+            <span className="trivia-level-tab-n">{tx.level} {l.n}</span>
+            <span className="trivia-level-tab-desc">{tx.levelDesc[i]}</span>
           </div>
-          <p className="text-muted">{t('trivia','generating')}</p>
+        ))}
+      </div>
+
+      {/* Progress bar card */}
+      <div className="card mb-16 trivia-progress-card">
+        <div className="flex-between mb-8">
+          <span className="trivia-prog-label">
+            {tx.question} <strong>{qIndex + 1}</strong> {tx.of} <strong>{cfg.total}</strong>
+          </span>
+          <span className="trivia-prog-score">
+            {tx.corrects}: <strong style={{ color: 'var(--gold)' }}>{levelCorrect}</strong>
+            <span className="trivia-prog-need"> / {tx.need} {cfg.pass}</span>
+          </span>
         </div>
-      ) : current && (
-        <div className="card mb-16" style={{
-          background:'linear-gradient(135deg,rgba(240,180,41,.07),rgba(240,180,41,.02))',
-          border:'1px solid rgba(240,180,41,.2)', borderRadius:'var(--radius-lg)', padding:32, textAlign:'center'
-        }}>
-          <div style={{ fontSize:52, marginBottom:16 }} aria-hidden="true">{current.emoji}</div>
-          <h2 style={{ fontSize:18, fontWeight:600, lineHeight:1.4, marginBottom:28 }}>{current.q}</h2>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }} role="group">
-            {current.opts.map((opt, i) => {
+        <div className="stat-bar-track">
+          <div className="stat-bar-fill" style={{ width: `${progressPct}%`, transition: 'width 0.4s ease' }} />
+        </div>
+      </div>
+
+      {/* Question card */}
+      {currentQ && (
+        <div className="card mb-16 trivia-question-card">
+          <h2 className="trivia-question-text">{qText(currentQ)}</h2>
+          <div className="trivia-options-grid" role="group" aria-label="Answer options">
+            {qOpts(currentQ).map((opt, i) => {
               let cls = 'trivia-opt'
               if (answered) {
-                if (i === current.correct)                 cls += ' correct'
-                else if (i === selected && i !== current.correct) cls += ' wrong'
-                else cls += ' disabled'
+                if (i === currentQ.correct)                        cls += ' correct'
+                else if (i === selected && i !== currentQ.correct) cls += ' wrong'
+                else                                               cls += ' disabled'
               }
               return (
-                <button key={i} className={cls}
-                  onClick={() => !answered && answer(i)} disabled={answered}>
-                  <span style={{ marginRight:8, fontWeight:700, color:'var(--text3)' }}>
-                    {['A','B','C','D'][i]}.
-                  </span>
+                <button
+                  key={i}
+                  className={cls}
+                  onClick={() => answer(i)}
+                  disabled={answered}
+                  aria-label={`${['A','B','C','D'][i]}: ${opt}`}
+                >
+                  <span className="trivia-opt-letter">{['A','B','C','D'][i]}.</span>
                   {opt}
                 </button>
               )
@@ -97,64 +276,63 @@ export default function Trivia() {
         </div>
       )}
 
-      {/* Resultado */}
+      {/* Answer feedback */}
       {answered && (
         <div className="card mb-24 animate-fade">
-          <div style={{
-            background: selected === current?.correct ? 'rgba(16,185,129,.08)' : 'rgba(239,68,68,.08)',
-            border:`1px solid ${selected===current?.correct?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'}`,
-            borderRadius:'var(--radius-sm)', padding:16, marginBottom:16
-          }} role="alert" aria-live="polite">
-            <div style={{ fontSize:18, marginBottom:6 }}>
-              {selected === current?.correct ? `✅ ${t('trivia','correct')}` : `❌ ${t('trivia','incorrect')}`}
+          <div
+            className={`trivia-feedback ${selected === currentQ?.correct ? 'trivia-feedback-correct' : 'trivia-feedback-wrong'}`}
+            role="alert"
+            aria-live="polite"
+          >
+            <div className="trivia-feedback-verdict">
+              {selected === currentQ?.correct ? `✅ ${tx.correct}` : `❌ ${tx.incorrect}`}
             </div>
-            <div style={{ fontSize:13, color:'var(--text2)', lineHeight:1.7 }}>
-              💡 {current?.explain}
+            <div className="trivia-feedback-explain">
+              💡 {tx.hint} {qExplain(currentQ)}
             </div>
           </div>
-          <button className="btn btn-gold" onClick={next}>
-            🎲 {t('trivia','next')}
-          </button>
-        </div>
-      )}
 
-      {/* Barra de progreso */}
-      {score.total > 0 && (
-        <div className="card mb-24">
-          <div className="flex-between mb-8">
-            <span className="label" style={{ marginBottom:0 }}>{t('trivia','score')}</span>
-            <span style={{ color:'var(--gold)', fontWeight:600 }}>{score.correct}/{score.total}</span>
-          </div>
-          <div className="stat-bar-track">
-            <div className="stat-bar-fill" style={{ width:`${accuracy}%` }} />
-          </div>
-          <p className="caption mt-8">
-            {accuracy >= 80 ? `🔥 ${t('trivia','genius')}` : accuracy >= 50 ? `👍 ${t('trivia','not_bad')}` : `📚 ${t('trivia','keep_learning')}`}
-          </p>
+          {!canStillPass && !isLastQuestion && (
+            <div className="trivia-cant-pass">
+              ⚠️ {tx.cantPass}
+            </div>
+          )}
+
+          <button className="btn btn-gold" onClick={nextQuestion}>
+            {isLastQuestion ? tx.seeResult : tx.next}
+          </button>
         </div>
       )}
 
       <div className="divider" />
 
-      {/* Fun Facts — random selection rotates every page load */}
-      <section aria-labelledby="facts-heading">
-        <div className="section-header mb-16">
-          <h2 className="section-title" id="facts-heading">
-            <span>{t('trivia','fun_facts')}</span>
-          </h2>
-          <span className="caption" style={{ color: 'var(--text3)' }}>
-            {displayedFacts.length}/{FUN_FACTS.length}
-          </span>
-        </div>
-        <div className="grid-2">
-          {displayedFacts.map((f, i) => (
-            <div key={i} className="card-sm flex gap-12" style={{ alignItems:'flex-start' }}>
-              <span style={{ fontSize:28, flexShrink:0 }} aria-hidden="true">{f.emoji}</span>
-              <p style={{ fontSize:13, lineHeight:1.7, color:'var(--text2)' }}>{f.fact}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Fun facts */}
+      <FunFactsSection facts={displayedFacts} heading={tx.funFacts} total={FUN_FACTS.length} factText={factText} />
     </div>
+  )
+}
+
+// ── Fun facts sub-component ───────────────────────
+function FunFactsSection({ facts, heading, total, factText }) {
+  const getText = factText || ((f) => f.fact)
+  return (
+    <section aria-labelledby="facts-heading">
+      <div className="section-header mb-16">
+        <h2 className="section-title" id="facts-heading"><span>{heading}</span></h2>
+        {total != null && (
+          <span className="caption" style={{ color: 'var(--text3)' }}>
+            {facts.length}/{total}
+          </span>
+        )}
+      </div>
+      <div className="grid-2">
+        {facts.map((f, i) => (
+          <div key={i} className="card-sm flex gap-12" style={{ alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 28, flexShrink: 0 }} aria-hidden="true">{f.emoji}</span>
+            <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text2)' }}>{getText(f)}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }

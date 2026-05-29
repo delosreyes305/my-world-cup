@@ -8,6 +8,7 @@ import { post } from './http.js'
 async function callClaude({ prompt, system, max_tokens = 900 }) {
   const body = { prompt, max_tokens }
   if (system) body.system = system
+  // post() throws on non-2xx; the error message is surfaced to the caller
   const data = await post('/api/claude', body)
   if (data.error) throw new Error(data.error)
   return data.content?.find(c => c.type === 'text')?.text || ''
@@ -17,21 +18,23 @@ async function callClaude({ prompt, system, max_tokens = 900 }) {
 // MATCH PREDICTION
 // Returns: { score, winner, confidence, team1_strengths,
 //            team2_strengths, key_player_1, key_player_2,
-//            tactics, analysis }
+//            tactics, analysis, _isMock? }
+// Throws on API key / network errors so the UI can show them.
 // ─────────────────────────────────────────────────────────
 
 function mockPrediction(team1, team2) {
   const favoured = (team1.rank || 99) <= (team2.rank || 99) ? team1 : team2
-  const underdog = favoured.id === team1.id ? team2 : team1
+  const underdog  = favoured.id === team1.id ? team2 : team1
   return {
-    score: `${favoured.name} 2-1 ${underdog.name}`,
-    winner: favoured.name,
+    _isMock: true,
+    score:   `${favoured.name} 2-1 ${underdog.name}`,
+    winner:  favoured.name,
     confidence: 65,
     team1_strengths: ['Experienced squad', 'Strong defensive block', 'Set-piece quality'],
     team2_strengths: ['Pace on the counter', 'High pressing system', 'Technical midfield'],
     key_player_1: `${team1.name} Captain`,
     key_player_2: `${team2.name} Captain`,
-    tactics: `${team1.name} will look to control the tempo with a 4-2-3-1, while ${team2.name} is likely to sit compactly in a 4-4-2 and exploit transitions.`,
+    tactics:  `${team1.name} will look to control the tempo with a 4-2-3-1, while ${team2.name} is likely to sit compactly in a 4-4-2 and exploit transitions.`,
     analysis: `${team1.name} (FIFA #${team1.rank || '—'}) arrive with a strong historical record at World Cups. ${team2.name} (FIFA #${team2.rank || '—'}) have shown great resilience throughout the tournament. This should be a tightly contested match where fine margins decide the outcome.`,
   }
 }
@@ -80,13 +83,17 @@ Reply ONLY with valid JSON (no extra text, no markdown), using this exact struct
   "analysis": "passionate 3-4 sentence match narrative"
 }`
 
+  // ── Call the API — let auth/config errors bubble up ──
+  // Only catch JSON-parse issues (bad response format) and fall back to mock.
+  const text = await callClaude({ prompt, system, max_tokens: 900 })
+
   try {
-    const text = await callClaude({ prompt, system, max_tokens: 900 })
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error('No JSON in response')
     return JSON.parse(jsonMatch[0])
-  } catch (err) {
-    console.warn('[aiService] Prediction fallback:', err.message)
+  } catch {
+    // Claude responded but not valid JSON → use mock silently
+    console.warn('[aiService] Response was not valid JSON, using mock')
     return mockPrediction(team1, team2)
   }
 }

@@ -93,9 +93,9 @@ export default function News() {
 
                 {article.excerpt && (
                   <p className="caption mt-8" style={{
-                    lineHeight: 1.5,
+                    lineHeight: 1.55,
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: 4,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }}>

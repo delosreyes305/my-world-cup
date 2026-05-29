@@ -5,7 +5,7 @@ const translations = {
     nav: {
       home: 'Home', matches: 'Matches', teams: 'Teams', players: 'Players',
       bracket: 'Bracket', news: 'News', trivia: 'Trivia',
-      predict: 'AI Predict', favorites: 'Favorites',
+      predict: 'AI Predict', favorites: 'Favorites', ranking: 'Ranking',
     },
     home: {
       hero_sub: 'Your ultimate companion for the greatest football tournament on Earth',
@@ -64,7 +64,7 @@ const translations = {
       win_prob: 'Win Probability', analysis: 'AI Analysis',
       predicted_score: 'Predicted Score', winner: 'Winner', confidence: 'confidence',
       strengths: 'Strengths', key_players: 'Key Players', tactics: 'Tactics',
-      draw: 'Draw', new_prediction: 'New Prediction', copy: 'Copy', copied: 'Copied',
+      draw: 'Draw', new_prediction: 'New Prediction', copy: 'Copy Prediction', copied: 'Copied',
       analyzing: 'Analyzing...', same_team: 'Select two different teams.',
       comparison: 'Comparison',
     },
@@ -86,7 +86,7 @@ const translations = {
     nav: {
       home: 'Inicio', matches: 'Partidos', teams: 'Equipos', players: 'Jugadores',
       bracket: 'Cuadro', news: 'Noticias', trivia: 'Trivia',
-      predict: 'IA Predictor', favorites: 'Favoritos',
+      predict: 'IA Predictor', favorites: 'Favoritos', ranking: 'Ranking',
     },
     home: {
       hero_sub: 'Tu compañero definitivo para el torneo de fútbol más grande del planeta',
@@ -145,7 +145,7 @@ const translations = {
       win_prob: 'Probabilidad de Victoria', analysis: 'Análisis IA',
       predicted_score: 'Marcador Predicho', winner: 'Ganador', confidence: 'confianza',
       strengths: 'Fortalezas', key_players: 'Jugadores Clave', tactics: 'Táctica',
-      draw: 'Empate', new_prediction: 'Nueva Predicción', copy: 'Copiar', copied: 'Copiado',
+      draw: 'Empate', new_prediction: 'Nueva Predicción', copy: 'Copiar Predicción', copied: 'Copiado',
       analyzing: 'Analizando...', same_team: 'Selecciona dos equipos distintos.',
       comparison: 'Comparativa',
     },

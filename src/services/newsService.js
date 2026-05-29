@@ -33,21 +33,24 @@ const QUERIES_ES = {
 const SOCCER_EN = /soccer|football|fifa|world cup|goal|messi|ronaldo|mbappé|neymar|premier|liga|bundesliga|serie a|ligue 1/i
 const SOCCER_ES = /fútbol|mundial|copa del mundo|gol|messi|ronaldo|mbappé|neymar|selección|liga|bundesliga|premier/i
 
-export async function getNews(category = 'all', lang = 'en', pageSize = 18) {
-  if (isMock) {
-    const catMap = {
-      all:          NEWS,
-      breaking:     NEWS.filter(n => n.cat === 'BREAKING'),
-      match_report: NEWS.filter(n => n.cat === 'MATCH REPORT'),
-      injury:       NEWS.filter(n => n.cat === 'INJURY'),
-      transfer:     NEWS.filter(n => n.cat === 'TRANSFER'),
-      trending:     NEWS.filter(n => n.cat === 'TRENDING'),
-      world_cup:    NEWS.filter(n => n.cat === 'WORLD CUP'),
-    }
-    return catMap[category]?.length ? catMap[category] : NEWS
+// ─── Mock fallback by category ───────────────────────
+function mockByCategory(category) {
+  const catMap = {
+    all:          NEWS,
+    breaking:     NEWS.filter(n => n.cat === 'BREAKING'),
+    match_report: NEWS.filter(n => n.cat === 'MATCH REPORT'),
+    injury:       NEWS.filter(n => n.cat === 'INJURY'),
+    transfer:     NEWS.filter(n => n.cat === 'TRANSFER'),
+    trending:     NEWS.filter(n => n.cat === 'TRENDING'),
+    world_cup:    NEWS.filter(n => n.cat === 'WORLD CUP'),
   }
+  return catMap[category]?.length ? catMap[category] : NEWS
+}
 
-  const isEs   = lang === 'es'
+export async function getNews(category = 'all', lang = 'en', pageSize = 18) {
+  if (isMock) return mockByCategory(category)
+
+  const isEs    = lang === 'es'
   const queries = isEs ? QUERIES_ES : QUERIES_EN
   const q       = queries[category] || queries.all
   const apiLang = isEs ? 'es' : 'en'
@@ -55,11 +58,28 @@ export async function getNews(category = 'all', lang = 'en', pageSize = 18) {
 
   const url = `${BASE}/everything?q=${encodeURIComponent(q)}&language=${apiLang}&sortBy=publishedAt&pageSize=${pageSize}&apiKey=${KEY}`
 
-  const data = await get(url)
-  return (data.articles || [])
-    .filter(a => a.title && a.title !== '[Removed]')
-    .filter(a => filter.test(a.title) || filter.test(a.description || ''))
-    .map(a => normalizeArticle(a, lang))
+  try {
+    const data = await get(url)
+
+    // NewsAPI returns status:'error' with HTTP 200 for plan limits / bad keys
+    if (data.status === 'error') {
+      console.warn(`[newsService] API error (${data.code}): ${data.message} — using mock data`)
+      return mockByCategory(category)
+    }
+
+    const articles = (data.articles || [])
+      .filter(a => a.title && a.title !== '[Removed]')
+      .filter(a => filter.test(a.title) || filter.test(a.description || ''))
+      .map(a => normalizeArticle(a, lang))
+
+    // If the API returned nothing useful, fall back to mock
+    if (articles.length === 0) return mockByCategory(category)
+
+    return articles
+  } catch (err) {
+    console.warn('[newsService] Request failed, using mock data:', err.message)
+    return mockByCategory(category)
+  }
 }
 
 export async function getHeadlines(lang = 'en', pageSize = 6) {

@@ -4,6 +4,7 @@ import { useLang } from '../context/LangContext'
 import { useApi } from '../hooks/useApi'
 import { getTeams } from '../services/sportsService'
 import { getMatchPredictionAI } from '../services/aiService'
+import { getTeamForm } from '../services/sportsService'
 
 // ── Inline flag renderer ─────────────────────────────────
 function TeamFlag({ flag, name, size = 20 }) {
@@ -81,6 +82,7 @@ export default function AiPredict() {
   )
   const [loading, setL]     = useState(false)
   const [result,  setR]     = useState(null)
+  const [aiError, setAiErr] = useState(null)
   const [copied,  setCopied] = useState(false)
 
   // Auto-run once when both teams arrive pre-filled from MatchDetail
@@ -97,13 +99,23 @@ export default function AiPredict() {
   // ── Generate prediction ──────────────────────────────
   const run = useCallback(async () => {
     if (!ready) return
-    setL(true); setR(null)
+    setL(true); setR(null); setAiErr(null)
     try {
-      const prediction = await getMatchPredictionAI(team1, team2, lang)
+      const [prediction, form1, form2] = await Promise.all([
+        getMatchPredictionAI(team1, team2, lang),
+        getTeamForm(team1.id),
+        getTeamForm(team2.id),
+      ])
       const probs = buildProbs(team1, team2, prediction.winner, prediction.confidence)
-      setR({ ...prediction, probs, team1, team2 })
+      setR({
+        ...prediction,
+        probs,
+        team1: { ...team1, form: form1.length ? form1 : (team1.form || []) },
+        team2: { ...team2, form: form2.length ? form2 : (team2.form || []) },
+      })
     } catch (err) {
       console.error('[AiPredict] run error:', err)
+      setAiErr(err.message || 'Unknown error')
     } finally {
       setL(false)
     }
@@ -224,6 +236,40 @@ export default function AiPredict() {
         </div>
       )}
 
+      {/* ─── API Error ─── */}
+      {aiError && !loading && (
+        <div className="card mb-16" style={{
+          background: 'rgba(239,68,68,0.07)',
+          border: '1px solid rgba(239,68,68,0.25)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '18px 20px',
+        }} role="alert">
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--red)', marginBottom: 6 }}>
+                {lang === 'es' ? 'Error al contactar la IA' : 'AI service error'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 10 }}>
+                {aiError.includes('authentication') || aiError.includes('Invalid') || aiError.includes('credentials')
+                  ? (lang === 'es'
+                      ? 'Clave de API inválida o revocada. Actualiza VITE_ANTHROPIC_API_KEY en .env con una clave válida de console.anthropic.com y reinicia el servidor.'
+                      : 'Invalid or revoked API key. Update VITE_ANTHROPIC_API_KEY in .env with a valid key from console.anthropic.com and restart the server.')
+                  : aiError.includes('not configured')
+                    ? (lang === 'es'
+                        ? 'Clave de API no configurada. Agrega VITE_ANTHROPIC_API_KEY en tu archivo .env y reinicia el servidor.'
+                        : 'API key not configured. Add VITE_ANTHROPIC_API_KEY to your .env file and restart the server.')
+                    : aiError
+                }
+              </div>
+              <code style={{ fontSize: 11, color: 'var(--text3)', background: 'rgba(0,0,0,0.2)', padding: '4px 8px', borderRadius: 4, display: 'block', wordBreak: 'break-all' }}>
+                {aiError}
+              </code>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── Result ─── */}
       {result && !loading && (
         <div className="animate-fade">
@@ -235,10 +281,16 @@ export default function AiPredict() {
             padding: '28px 24px',
             textAlign: 'center',
           }}>
-            <div className="caption mb-16" style={{
-              color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase', fontSize: 11
-            }}>
-              {t('predict', 'predicted_score')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+              <span className="caption" style={{ color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase', fontSize: 11 }}>
+                {t('predict', 'predicted_score')}
+              </span>
+              {result._isMock
+                ? <span className="badge" style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text3)', fontSize: 10, border: '1px solid rgba(255,255,255,0.12)' }}>
+                    📋 {lang === 'es' ? 'Datos de ejemplo' : 'Sample data'}
+                  </span>
+                : <span className="badge badge-gold" style={{ fontSize: 10 }}>✨ Claude AI</span>
+              }
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -310,7 +362,11 @@ export default function AiPredict() {
             <div className="grid-3">
               {[
                 { label: 'FIFA Rank', v1: result.team1.rank ? `#${result.team1.rank}` : '—', v2: result.team2.rank ? `#${result.team2.rank}` : '—' },
-                { label: lang === 'es' ? 'Forma' : 'Form', v1: result.team1.form?.slice(-5).join(' ') || '—', v2: result.team2.form?.slice(-5).join(' ') || '—' },
+                ...(result.team1.form?.length || result.team2.form?.length ? [{
+                  label: lang === 'es' ? 'Forma' : 'Form',
+                  v1: result.team1.form?.slice(-5).join(' ') || '—',
+                  v2: result.team2.form?.slice(-5).join(' ') || '—',
+                }] : []),
                 { label: lang === 'es' ? 'Títulos WC' : 'WC Titles', v1: result.team1.titles || '0', v2: result.team2.titles || '0' },
               ].map(s => (
                 <div key={s.label} className="card-sm" style={{ textAlign: 'center' }}>
@@ -428,11 +484,11 @@ export default function AiPredict() {
           {/* ── Action buttons ── */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn btn-gold" onClick={run} disabled={loading || !ready}>
-              🎲 {t('predict', 'new_prediction')}
+              {t('predict', 'new_prediction')}
             </button>
             <button className="btn" onClick={copy}
               style={{ background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-              {copied ? `✅ ${t('predict', 'copied')}` : `📋 ${t('predict', 'copy')}`}
+              {copied ? t('predict', 'copied') : t('predict', 'copy')}
             </button>
           </div>
 

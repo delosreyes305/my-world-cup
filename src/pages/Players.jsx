@@ -1,12 +1,15 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useApp } from '../context/AppContext'
 import { useApi } from '../hooks/useApi'
-import { getAllTeamPlayers, searchPlayers, getTeams, IS_MOCK } from '../services/sportsService'
+import { getAllTeamPlayers, searchPlayers, getTeams, IS_MOCK, TEAM_ISO } from '../services/sportsService'
 import ApiStatus from '../components/common/ApiStatus'
 
-const POSITIONS  = ['All', 'FW', 'MF', 'DF', 'GK']
+const POSITIONS = ['All', 'FW', 'MF', 'DF', 'GK']
+
+// All 48 WC 2026 nations, alphabetically sorted
+const COUNTRIES_ALL = ['All', ...Object.keys(TEAM_ISO).sort()]
 
 // ── Simple debounce hook ─────────────────────────────
 function useDebounce(value, delay) {
@@ -22,79 +25,91 @@ export default function Players() {
   const { t, lang }          = useLang()
 
   const POS_LABELS = {
-    All: lang === 'es' ? 'Todas las posiciones' : 'All Positions',
+    All: lang === 'es' ? 'Todas'       : 'All',
     FW:  lang === 'es' ? 'Delanteros'  : 'Forwards',
-    MF:  lang === 'es' ? 'Mediocampistas' : 'Midfielders',
+    MF:  lang === 'es' ? 'Mediocamps.' : 'Midfielders',
     DF:  lang === 'es' ? 'Defensas'    : 'Defenders',
-    GK:  lang === 'es' ? 'Porteros'    : 'Goalkeepers',
+    GK:  lang === 'es' ? 'Porteros'    : 'Keepers',
   }
   const SORT_OPT = [
-    { val: 'alpha',   label: lang === 'es' ? 'A–Z'        : 'A–Z'      },
-    { val: 'rating',  label: lang === 'es' ? 'Rating'     : 'Rating'   },
-    { val: 'goals',   label: lang === 'es' ? 'Goles'      : 'Goals'    },
-    { val: 'assists', label: lang === 'es' ? 'Asistencias': 'Assists'  },
+    { val: 'alpha',   label: lang === 'es' ? 'A–Z'          : 'A–Z'     },
+    { val: 'rating',  label: lang === 'es' ? 'Rating'       : 'Rating'  },
+    { val: 'goals',   label: lang === 'es' ? 'Goles'        : 'Goals'   },
+    { val: 'assists', label: lang === 'es' ? 'Asistencias'  : 'Assists' },
   ]
   const { toggleFav, isFav } = useApp()
   const navigate             = useNavigate()
 
-  // Filters
-  const [pos,    setPos   ] = useState('All')
-  const [sortBy, setSortBy] = useState('alpha')
-  const [search, setSearch] = useState('')
+  // ── Filters ──────────────────────────────────────────
+  const [pos,     setPos    ] = useState('All')
+  const [country, setCountry] = useState('All')
+  const [sortBy,  setSortBy ] = useState('alpha')
+  const [search,  setSearch ] = useState('')
 
-  // Pagination + selected team
-  const [page,         setPage        ] = useState(1)
-  const [selectedTeam, setSelectedTeam] = useState(null)
+  // Pagination
+  const [page, setPage] = useState(1)
 
   // Debounce search for API calls (400 ms)
   const debouncedSearch = useDebounce(search, 400)
 
-  // ── Global search mode: no team selected + search ≥ 3 chars (API mode only) ──
-  const isGlobalSearch = !IS_MOCK && selectedTeam === null && debouncedSearch.trim().length >= 3
-
-  // ── Load teams list for country filter (cached 1 h) ──
+  // ── Load teams list — needed only in API mode to map country name → team ID ──
   const { data: teams } = useApi(getTeams, { ttl: 3_600_000 })
 
-  // ── Load full squad when a team is selected ──────────────────────────────────
-  // In mock with no team: loads all players. In API with no team: skip (use global search).
+  const countryList = useMemo(() =>
+    teams ? [...teams].sort((a, b) => a.name.localeCompare(b.name)) : [],
+  [teams])
+
+  // Derive selected team object from country name (API mode only)
+  const selectedTeam = useMemo(() => {
+    if (country === 'All') return null
+    return countryList.find(t => t.name === country) ?? null
+  }, [country, countryList])
+
+  // ── Global search mode: no country selected + search ≥ 3 chars (API only) ──
+  const isGlobalSearch = !IS_MOCK && country === 'All' && debouncedSearch.trim().length >= 3
+
+  // ── Load players ─────────────────────────────────────
+  // Mock: always load all players → filter client-side by country
+  // API:  load that team's full squad when a country is selected
+  const teamIdToLoad = IS_MOCK ? null : (selectedTeam?.id ?? null)
   const skipTeamLoad = !IS_MOCK && selectedTeam === null
   const { data: teamPlayers, loading: teamLoading, error: teamError, refetch } = useApi(
     getAllTeamPlayers,
-    selectedTeam ? selectedTeam.id : null,
+    teamIdToLoad,
     { ttl: 3_600_000, skip: skipTeamLoad },
   )
 
-  // ── Global search via API ─────────────────────────────────────────────────────
+  // ── Global search via API ─────────────────────────────
   const { data: searchResults, loading: searchLoading, error: searchError } = useApi(
     searchPlayers,
     debouncedSearch,
     { ttl: 60_000, skip: !isGlobalSearch || debouncedSearch.trim().length < 3 },
   )
 
-  // Select which dataset to use
-  const rawPlayers  = isGlobalSearch ? (searchResults || []) : (teamPlayers || [])
-  const loading     = isGlobalSearch ? searchLoading : teamLoading
-  const error       = isGlobalSearch ? searchError   : teamError
+  // Select dataset
+  const rawPlayers = isGlobalSearch ? (searchResults || []) : (teamPlayers || [])
+  const loading    = isGlobalSearch ? searchLoading : teamLoading
+  const error      = isGlobalSearch ? searchError   : teamError
 
-  // Team selection: reset filters + go to page 1
-  const handleTeamSelect = useCallback((team) => {
-    setSelectedTeam(team)
+  // Country tab click
+  const handleCountrySelect = useCallback((countryName) => {
+    setCountry(countryName)
     setPage(1)
     setPos('All')
     setSearch('')
   }, [])
 
-  // Country list A→Z
-  const countryList = useMemo(() =>
-    teams ? [...teams].sort((a, b) => a.name.localeCompare(b.name)) : [],
-  [teams])
-
-  // Client-side filter + sort (name filter only in team mode; global search already filtered)
+  // ── Client-side filter + sort ─────────────────────────
   const filtered = useMemo(() => {
-    let result = rawPlayers
-      .filter(p => pos === 'All' || p.pos === pos)
+    let result = rawPlayers.filter(p => pos === 'All' || p.pos === pos)
 
-    // In team mode, apply client-side name search
+    // Country filter — client-side in mock mode only
+    // (in API mode rawPlayers already contains the selected team's players)
+    if (IS_MOCK && country !== 'All') {
+      result = result.filter(p => p.nation?.toLowerCase() === country.toLowerCase())
+    }
+
+    // Name search in team/mock mode
     if (!isGlobalSearch && search) {
       const q = search.toLowerCase()
       result = result.filter(p => p.name?.toLowerCase().includes(q))
@@ -104,26 +119,25 @@ export default function Players() {
     if (sortBy === 'goals')   return [...result].sort((a, b) => (b.goals || 0) - (a.goals || 0))
     if (sortBy === 'assists') return [...result].sort((a, b) => (b.assists || 0) - (a.assists || 0))
     return result // 'alpha' already sorted by last name from service
-  }, [rawPlayers, pos, search, sortBy, isGlobalSearch])
+  }, [rawPlayers, pos, country, search, sortBy, isGlobalSearch])
 
   // Client-side pagination
   const PAGE_SIZE        = 20
   const totalPages       = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const displayedPlayers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setPage(1) }, [pos, search, sortBy, selectedTeam, debouncedSearch])
+  // Reset to page 1 when any filter changes
+  useEffect(() => { setPage(1) }, [pos, country, search, sortBy, debouncedSearch])
 
-  // ── Show prompt when nothing is ready to show ────────────────────────────────
-  // In API mode: no team AND search is too short → show the "select a country" prompt
-  const showPrompt = !IS_MOCK && selectedTeam === null && debouncedSearch.trim().length < 3
+  // Show prompt when no players can be loaded yet (API mode, no selection)
+  const showPrompt = !IS_MOCK && country === 'All' && debouncedSearch.trim().length < 3
 
   return (
     <div className="page-content page-enter">
 
       {/* ── Header ── */}
       <div className="section-header mb-16">
-        <h1 className="section-title"> <span>{t('nav', 'players')}</span></h1>
+        <h1 className="section-title"><span>{t('nav', 'players')}</span></h1>
         <select className="select-dark" value={sortBy} onChange={e => setSortBy(e.target.value)}>
           {SORT_OPT.map(o => (
             <option key={o.val} value={o.val}>
@@ -145,7 +159,6 @@ export default function Players() {
           onChange={e => setSearch(e.target.value)}
           aria-label="Search player"
         />
-        {/* Live indicator while API search is running */}
         {isGlobalSearch && searchLoading && (
           <span style={{
             position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
@@ -157,7 +170,7 @@ export default function Players() {
       </div>
 
       {/* ── Position filter ── */}
-      <div className="scroll-tabs" role="tablist" aria-label={lang === 'es' ? 'Posición' : 'Position'}>
+      <div className="scroll-tabs" role="tablist" aria-label={lang === 'es' ? 'Posición' : 'Position'} style={{ marginBottom: 10 }}>
         {POSITIONS.map(p => (
           <button key={p}
             className={`scroll-tab${pos === p ? ' active' : ''}`}
@@ -167,28 +180,33 @@ export default function Players() {
         ))}
       </div>
 
-      {/* ── Country filter ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div className="label mb-8">{t('common','filter_country')}</div>
-        <select
-          className="select-dark"
-          style={{ width: '100%' }}
-          value={selectedTeam ? String(selectedTeam.id) : ''}
-          onChange={e => {
-            const val = e.target.value
-            handleTeamSelect(val ? countryList.find(tm => String(tm.id) === val) ?? null : null)
-          }}
-          aria-label={t('common','filter_country')}
-        >
-          <option value="">{t('common','all_countries')}</option>
-          {countryList.map(team => (
-            <option key={team.id} value={String(team.id)}>
-              {typeof team.flag === 'string' && !team.flag.startsWith('http')
-                ? `${team.flag} ${team.name}`
-                : team.name}
-            </option>
-          ))}
-        </select>
+      {/* ── Country filter — scroll-tabs matching position filter style ── */}
+      <div className="scroll-tabs" role="tablist" aria-label={t('common', 'filter_country')} style={{ marginBottom: 20 }}>
+        {COUNTRIES_ALL.map(c => (
+          <button
+            key={c}
+            className={`scroll-tab${country === c ? ' active' : ''}`}
+            onClick={() => handleCountrySelect(c)}
+            role="tab"
+            aria-selected={country === c}
+          >
+            {c !== 'All' && TEAM_ISO[c] && (
+              <img
+                src={`https://flagcdn.com/w20/${TEAM_ISO[c]}.png`}
+                alt=""
+                aria-hidden="true"
+                style={{
+                  width: 16, height: 11, objectFit: 'cover',
+                  borderRadius: 1, marginRight: 5,
+                  display: 'inline-block', flexShrink: 0,
+                  verticalAlign: 'middle',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                }}
+              />
+            )}
+            {c === 'All' ? t('common', 'all_countries') : c}
+          </button>
+        ))}
       </div>
 
       {/* ── Result count ── */}
@@ -198,8 +216,8 @@ export default function Players() {
             ? `${filtered.length} ${lang === 'es' ? `resultado${filtered.length !== 1 ? 's' : ''}` : `result${filtered.length !== 1 ? 's' : ''}`} — "${debouncedSearch}"`
             : `${filtered.length} ${lang === 'es' ? `jugador${filtered.length !== 1 ? 'es' : ''}` : `player${filtered.length !== 1 ? 's' : ''}`}`
           }
-          {selectedTeam && ` — ${selectedTeam.name}`}
-          {pos    !== 'All' && ` · ${POS_LABELS[pos]}`}
+          {country !== 'All' && ` — ${country}`}
+          {pos    !== 'All'  && ` · ${POS_LABELS[pos]}`}
           {!isGlobalSearch && search && ` · "${search}"`}
           {!isGlobalSearch && ` · ${lang === 'es' ? `Página ${page} de ${totalPages}` : `Page ${page} of ${totalPages}`}`}
         </p>
@@ -231,7 +249,7 @@ export default function Players() {
           emptyMessage={
             isGlobalSearch
               ? (lang === 'es' ? `No se encontraron jugadores para "${debouncedSearch}".` : `No players found for "${debouncedSearch}".`)
-              : (search || pos !== 'All')
+              : (search || pos !== 'All' || country !== 'All')
                 ? (lang === 'es' ? 'No hay jugadores con esos filtros. Prueba otra combinación.' : 'No players match these filters. Try a different combination.')
                 : (lang === 'es' ? 'No hay jugadores disponibles.' : 'No players available.')
           }>
@@ -297,7 +315,7 @@ export default function Players() {
         </ApiStatus>
       )}
 
-      {/* ── Pagination (team mode only) ── */}
+      {/* ── Pagination ── */}
       {!showPrompt && !isGlobalSearch && !loading && !error && totalPages > 1 && (
         <div className="flex-center gap-8 mt-24" style={{ flexWrap: 'wrap' }}>
           <button className="btn btn-outline btn-sm"

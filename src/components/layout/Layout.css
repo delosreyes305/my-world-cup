@@ -152,7 +152,6 @@
 @media (max-width: 480px) {
   .live-ticker  { padding: 5px 10px; gap: 6px; }
   .ticker-label { font-size: 10px; letter-spacing: 0; }
-  .ticker-meta  { display: none; }   /* hide date/city on very small screens */
 }
 
 /* ─── BOTTOM NAV (mobile / tablet) ─── */

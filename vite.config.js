@@ -107,6 +107,15 @@ export default defineConfig({
         changeOrigin: true,
         rewrite:      p => p.replace(/^\/api\/news/, ''),
       },
+      // ── Flask backend (auth + favoritos) ──────────────────────────
+      '/api/auth': {
+        target:       'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/api/favorites': {
+        target:       'http://localhost:5000',
+        changeOrigin: true,
+      },
     },
   },
   build: { outDir: 'dist' },

@@ -260,7 +260,7 @@ export default function Home() {
   const { data: liveMatches, loading: liveLoad } = useApiPolling(getLiveMatches, 30_000)
   const { data: standings  }                      = useApi(getStandings,   { ttl: 3_600_000 })
   const { data: allTeams   }                      = useApi(getTeams,       { ttl: 3_600_000 })
-  const { data: headlines  }                      = useApi(getNews, 'all', lang, 6, { ttl: 120_000 })
+  const { data: headlines  }                      = useApi(getNews, 'all', lang, 10, { ttl: 120_000 })
   const { data: scorers, loading: scorersLoad }   = useApi(getTopScorers,  { ttl: 3_600_000 })
   const { data: allFixtures }                     = useApi(getAllFixtures,  { ttl: 1_800_000 })
 
@@ -526,7 +526,7 @@ export default function Home() {
           <button className="see-all" onClick={() => navigate('/news')}>{t('common','see_all')} →</button>
         </div>
         <div className="grid-3">
-          {(headlines || []).slice(0, 6).map((n, i) => (
+          {(headlines || []).slice(0, 3).map((n, i) => (
             <article
               key={n.id || i}
               className="news-article-card card card-clickable"
